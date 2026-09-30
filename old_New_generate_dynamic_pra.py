@@ -28,7 +28,6 @@ Files:
 import argparse
 import json
 import math
-import os
 import re
 from pathlib import Path
 from typing import Any
@@ -430,116 +429,6 @@ def build_plotly_geo_spec(df: pd.DataFrame) -> dict[str, Any]:
     }
 
 
-
-# ============================================================
-# ALL-COLUMN SUMMARY (every populated column in the raw file)
-# ============================================================
-
-COLUMN_COLORS = ["#3f5bd8", "#f47b20", "#12a8b8", "#18a878", "#7c5ce5", "#e66aa4"]
-
-
-def column_summaries(df: pd.DataFrame, top_n: int = 6) -> list[dict[str, Any]]:
-    """Count + percentage for every populated, categorical column in the file."""
-    result: list[dict[str, Any]] = []
-    total = len(df)
-    seen: list[pd.Series] = []
-    for column in df.columns:
-        s = series_clean(df, column)
-        s = s[~s.isin(["", "nan", "NaN", "None"])]
-        if s.empty:
-            continue  # completely empty column (e.g. City, Asset2) - skipped
-        unique = int(s.nunique())
-        if unique <= 1:
-            continue  # same value on every row (e.g. Lead Type = BANT) - nothing to chart
-        dup_idx = next((i for i, prev in enumerate(seen) if s.equals(prev)), None)
-        if dup_idx is not None:
-            # exact duplicate of an earlier column (e.g. State = Country): keep the clearer "Country" name
-            if "country" in str(column).lower():
-                result[dup_idx]["column"] = str(column)
-            continue
-        seen.append(s)
-        if total > 20 and unique > total * 0.9:
-            continue  # free-text / id style column
-        counts = s.value_counts()
-        pairs = [(str(k), int(v)) for k, v in counts.head(top_n).items()]
-        rest = int(counts.iloc[top_n:].sum()) if unique > top_n else 0
-        result.append({
-            "column": str(column),
-            "filled": int(len(s)),
-            "unique": unique,
-            "pairs": pairs,
-            "other": rest,
-            "total": total,
-        })
-    return result
-
-
-def build_summary_slide(summaries: list[dict[str, Any]], total: int) -> str:
-    panels = []
-    for idx, item in enumerate(summaries):
-        rows = []
-        top = max((c for _, c in item["pairs"]), default=1)
-        for i, (name, count) in enumerate(item["pairs"]):
-            color = COLUMN_COLORS[i % len(COLUMN_COLORS)]
-            width = max(3, round(count / top * 100))
-            rows.append(
-                f'<div class="pra-row"><div class="pra-rl"><span title="{esc(name)}">{esc(name)}</span>'
-                f'<b>{count:,} &middot; {pct_text(pct(count, total))}</b></div>'
-                f'<div class="pra-bar"><i style="width:{width}%;background:{color}"></i></div></div>'
-            )
-        if item["other"]:
-            rows.append(
-                f'<div class="pra-row"><div class="pra-rl"><span>Other ({item["unique"] - len(item["pairs"])} more)</span>'
-                f'<b>{item["other"]:,} &middot; {pct_text(pct(item["other"], total))}</b></div></div>'
-            )
-        panels.append(
-            f'<div class="panel pra-panel"><div class="section">{esc(item["column"])}</div>'
-            f'<div class="pra-sub">{item["unique"]} distinct &middot; {item["filled"]:,} of {total:,} filled</div>'
-            + "".join(rows) + "</div>"
-        )
-    css = (
-        "<style>"
-        "#s13 .pra-cols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;"
-        "max-height:calc(100% - 120px);overflow:auto;padding-right:4px}"
-        "#s13 .pra-panel{padding:10px 12px}"
-        "#s13 .pra-sub{font-size:9px;color:#64748b;margin:-2px 0 6px}"
-        "#s13 .pra-row{margin-bottom:5px}"
-        "#s13 .pra-rl{display:flex;justify-content:space-between;gap:6px;font-size:10px;color:#334155}"
-        "#s13 .pra-rl span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}"
-        "#s13 .pra-rl b{color:#f47b20;white-space:nowrap}"
-        "#s13 .pra-bar{height:6px;background:#eef2f8;border-radius:4px;overflow:hidden;margin-top:2px}"
-        "#s13 .pra-bar i{display:block;height:100%;border-radius:4px}"
-        "@media(max-width:1100px){#s13 .pra-cols{grid-template-columns:repeat(2,minmax(0,1fr))}}"
-        "</style>"
-    )
-    return (
-        css + '<section class="slide hidden" id="s13"><div class="kicker">Lead Data Summary</div>'
-        '<h2 class="title">Every Lead Field &middot; Count &amp; Percentage</h2>'
-        '<div class="pra-cols">' + "".join(panels) + "</div>"
-        '<div class="footer">VALASYS MEDIA</div><div class="slideNo">13</div></section>'
-    )
-
-
-def add_summary_slide(html: str, summaries: list[dict[str, Any]], total: int) -> str:
-    """Adds slide 13 + nav entry + contents row. Existing slides are untouched."""
-    html = re.sub(r"<style>\s*#s13 .*?</style>\s*<section class=\"slide hidden\" id=\"s13\">.*?</section>\s*", "", html, flags=re.DOTALL)
-    html = re.sub(r"<button class=\"slide-nav-item\" onclick=\"goToSlide\(12\)\">.*?</button>\s*", "", html, flags=re.DOTALL)
-    html = re.sub(r"<div class=\"toc-row\"><span>08</span><b>Lead Data Summary</b><span>13</span></div>", "", html)
-    slide = build_summary_slide(summaries, total)
-    m = re.search(r'<section class="slide hidden" id="s12">.*?</section>', html, flags=re.DOTALL)
-    if m:
-        html = html[:m.end()] + "\n" + slide + html[m.end():]
-    nav = ('<button class="slide-nav-item" onclick="goToSlide(12)"><span class="thumb">13</span>'
-           '<span><b>Lead Data Summary</b><small>All fields</small></span></button>')
-    m = re.search(r'<button class="slide-nav-item"[^>]*goToSlide\(11\)[^>]*>.*?</button>', html, flags=re.DOTALL)
-    if m:
-        html = html[:m.end()] + nav + html[m.end():]
-    toc = '<div class="toc-row"><span>08</span><b>Lead Data Summary</b><span>13</span></div>'
-    html = re.sub(r'(<div class="toc-row"><span>07</span><b>Observations &amp; Recommendations</b><span>12</span></div>)', r"\1" + toc, html)
-    html = re.sub(r'(<div class="toc-row"><span>07</span><b>Observations & Recommendations</b><span>12</span></div>)', r"\1" + toc, html)
-    return html
-
-
 # ============================================================
 # DATA PREPARATION
 # ============================================================
@@ -564,12 +453,9 @@ def prepare_data(df: pd.DataFrame, inputs: dict[str, Any]) -> dict[str, Any]:
     unique_asset_count = int(series_clean(df, asset_col).replace("", pd.NA).nunique())
     decisions = top_counts(df, decision_col, 6)
     devices = top_counts(df, device_col, 6)
-    device_mix_is_estimate = False
-    # No device column in the file -> show real Decision Maker / Influencer counts instead of made-up numbers.
-    use_decision_mix = not bool(devices)
-    device_title = "Decision Maker Mix" if use_decision_mix else "Devices"
-    if use_decision_mix:
-        devices = list(decisions)
+    device_mix_is_estimate = not bool(devices)
+    if device_mix_is_estimate:
+      devices = [("Desktop/Laptop", 72), ("Mobile", 25), ("Other", 3)]
     lead_types = top_counts(df, lead_type_col, 6)
 
     sent = inputs["sent"]
@@ -622,7 +508,6 @@ def prepare_data(df: pd.DataFrame, inputs: dict[str, Any]) -> dict[str, Any]:
         "decisions": decisions,
         "devices": devices,
         "device_mix_is_estimate": device_mix_is_estimate,
-        "device_title": device_title,
         "lead_types": lead_types,
         "asset_opens": asset_opens,
         "asset_clicks": asset_clicks,
@@ -631,7 +516,6 @@ def prepare_data(df: pd.DataFrame, inputs: dict[str, Any]) -> dict[str, Any]:
         "geo": geo,
         "country_counts": country_counts,
         "geo_total": geo_total,
-        "maps_key": inputs.get("maps_key", ""),
         "industry_col": industry_col,
         "asset_col": asset_col,
     }
@@ -663,249 +547,10 @@ def build_matrix(df: pd.DataFrame, row_col: str | None, col_col: str | None, row
     return result
 
 
-PRA_EXTRA_JS = r'''// PRA-EXTRA: count + percentage labels, Google Maps location slide, decision-maker mix
-var PRA_PAL=['#4e7fd8','#f28a3d','#12a8b8','#18a878','#7c5ce5','#e66aa4'];
-function praFmtN(n){return Number(n||0).toLocaleString('en-US');}
-function praEsc(t){return String(t).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
-
-if (typeof Chart !== 'undefined') {
-  Chart.register({id:'praLabels', afterDatasetsDraw:function(chart){
-    var o=chart.options.plugins&&chart.options.plugins.praLabels; if(!o)return;
-    var ctx=chart.ctx, horiz=chart.options.indexAxis==='y', t=chart.config.type;
-    ctx.save(); ctx.textBaseline='middle';
-    chart.data.datasets.forEach(function(ds,di){
-      var meta=chart.getDatasetMeta(di); if(meta.hidden)return;
-      var sum=(ds.data||[]).reduce(function(a,b){return a+Number(b||0);},0);
-      meta.data.forEach(function(el,i){
-        var c,p;
-        if(o.grouped){c=Number(ds.data[i]||0); if(!c)return; p=sum?c/sum*100:0;}
-        else{c=o.counts[i]; if(c==null)return; p=o.pcts?o.pcts[i]:(o.total?c/o.total*100:0);}
-        if(t==='doughnut'){
-          if(p<6)return; var pos=el.tooltipPosition(); ctx.fillStyle='#fff'; ctx.textAlign='center';
-          ctx.font='bold 11px Arial'; ctx.fillText(p.toFixed(0)+'%',pos.x,pos.y-6);
-          ctx.font='10px Arial'; ctx.fillText(praFmtN(c),pos.x,pos.y+7); return;
-        }
-        var wide=horiz||(el.width>46);
-        var txt=(o.grouped&&!wide)?praFmtN(c):praFmtN(c)+' ('+p.toFixed(1)+'%)';
-        ctx.font='bold 10px Arial'; ctx.fillStyle='#172033';
-        if(horiz){ctx.textAlign='left'; ctx.fillText(txt,el.x+6,el.y);}
-        else{ctx.textAlign='center'; ctx.fillText(txt,el.x,el.y-10);}
-      });
-    });
-    ctx.restore();
-  }});
-}
-
-function praTrim(l){l=String(l);return l.length>30?l.slice(0,29)+'\u2026':l;}
-
-function praRebuildChart(canvasId,type,labels,values,options){
-  options=options||{};
-  var el=document.getElementById(canvasId); if(!el||typeof Chart==='undefined')return;
-  try{var old=Chart.getChart(el); if(old)old.destroy();}catch(e){}
-  var bg=options.bg||PRA_PAL, counts=options.counts||null, total=options.total||0;
-  var isDo=type==='doughnut', horiz=options.indexAxis==='y';
-  var pctOf=function(i){return options.pcts?options.pcts[i]:(total?counts[i]/total*100:0);};
-  var lab=(isDo&&counts)?labels.map(function(l,i){return praTrim(l)+' \u2013 '+praFmtN(counts[i])+' ('+pctOf(i).toFixed(1)+'%)';}):labels;
-  var catAxis={grid:{display:false},ticks:{color:'#334155',font:{size:9},callback:function(v){return praTrim(this.getLabelForValue(v));}}};
-  var valAxis={beginAtZero:true,grid:{color:'#edf0f4'},ticks:{color:'#64748b',font:{size:9},callback:function(v){return options.percent?Number(v).toFixed(0)+'%':v;}}};
-  var scales={}; if(!isDo){scales[horiz?'x':'y']=valAxis; scales[horiz?'y':'x']=catAxis;}
-  new Chart(el,{type:type,
-    data:{labels:lab,datasets:[{data:values,backgroundColor:bg,borderColor:options.border||(isDo?'#fff':bg),
-      borderWidth:options.borderWidth||(isDo?2:0),borderRadius:isDo?0:(options.radius||6),pointRadius:5,
-      pointBackgroundColor:'#f47b20',tension:0.32,fill:options.fill||false,hoverOffset:isDo?8:0}]},
-    options:{responsive:true,maintainAspectRatio:false,indexAxis:options.indexAxis||'x',cutout:isDo?'55%':undefined,
-      animation:{duration:900,easing:'easeOutQuart'},
-      layout:{padding:isDo?4:{right:horiz?92:12,top:horiz?4:22,left:4,bottom:4}},
-      plugins:{
-        legend:{display:!!options.legend,position:'bottom',labels:{color:'#475569',font:{size:9},boxWidth:10}},
-        tooltip:{callbacks:{label:function(c){var i=c.dataIndex;
-          if(counts){return ' '+labels[i]+': '+praFmtN(counts[i])+' ('+pctOf(i).toFixed(1)+'%)';}
-          return ' '+labels[i]+': '+c.raw+(options.percent?'%':'');}}},
-        praLabels:counts?{counts:counts,total:total,pcts:options.pcts||null}:false
-      },
-      scales:scales}});
-}
-
-function praRebuildGroupedChart(canvasId,labels,datasets,options){
-  options=options||{};
-  var el=document.getElementById(canvasId); if(!el||typeof Chart==='undefined')return;
-  try{var old=Chart.getChart(el); if(old)old.destroy();}catch(e){}
-  var horiz=options.indexAxis==='y';
-  datasets.forEach(function(d,i){d.borderRadius=5; if(!d.backgroundColor)d.backgroundColor=PRA_PAL[i%6];});
-  var scales={};
-  scales[horiz?'x':'y']={beginAtZero:true,grid:{color:'#edf0f4'},ticks:{color:'#64748b',font:{size:9},precision:0}};
-  scales[horiz?'y':'x']={grid:{display:false},ticks:{color:'#334155',font:{size:9},callback:function(v){return praTrim(this.getLabelForValue(v));}}};
-  new Chart(el,{type:'bar',data:{labels:labels,datasets:datasets},
-    options:{responsive:true,maintainAspectRatio:false,indexAxis:options.indexAxis||'x',
-      animation:{duration:900,easing:'easeOutQuart'},
-      layout:{padding:{right:horiz?70:8,top:horiz?4:20}},
-      plugins:{legend:{display:!!options.legend,position:'bottom',labels:{color:'#475569',font:{size:9},boxWidth:10}},
-        tooltip:{callbacks:{label:function(c){
-          var tot=(c.dataset.data||[]).reduce(function(a,b){return a+Number(b||0);},0);
-          var p=tot?c.raw/tot*100:0;
-          return ' '+c.dataset.label+': '+praFmtN(c.raw)+' ('+p.toFixed(1)+'% of this series)';}}},
-        praLabels:{grouped:true}},
-      scales:scales}});
-}
-
-function praUpdateCharts(){
-  var N=PRA.lead_count||1;
-  var sum=function(a){return a.reduce(function(x,y){return x+Number(y||0);},0);};
-  var pcts=function(a){return a.map(function(v){return +(v/N*100).toFixed(2);});};
-  praRebuildChart('jobLevel','bar',PRA.job_labels,PRA.job_values,{bg:PRA_PAL,counts:PRA.job_values,total:N});
-  praRebuildChart('jobSplit','bar',PRA.job_split_labels,pcts(PRA.job_split_values),{bg:PRA_PAL,indexAxis:'y',percent:true,counts:PRA.job_split_values,total:N});
-  praRebuildChart('jobFunctions','line',PRA.func_labels,pcts(PRA.func_values),{border:'#f47b20',bg:'rgba(244,123,32,.14)',borderWidth:3,fill:true,percent:true,counts:PRA.func_values,total:N});
-  praRebuildChart('industries','bar',PRA.industry_labels,pcts(PRA.industry_values),{bg:PRA_PAL,indexAxis:'y',percent:true,counts:PRA.industry_values,total:N});
-  praRebuildChart('employeeSize','bar',PRA.size_labels,pcts(PRA.size_values),{bg:PRA_PAL,percent:true,counts:PRA.size_values,total:N});
-  var dt=sum(PRA.device_values)||1;
-  praRebuildChart('devices','bar',PRA.device_labels,PRA.device_values.map(function(v){return +(v/dt*100).toFixed(2);}),{bg:PRA_PAL,indexAxis:'y',percent:true,counts:PRA.device_values,total:dt});
-  praRebuildChart('assetSplit','doughnut',PRA.asset_labels.slice(0,6),PRA.asset_values.slice(0,6),{bg:PRA_PAL,legend:true,counts:PRA.asset_values.slice(0,6),total:N});
-
-  var indDs=PRA.industry_labels.slice(0,2).map(function(ind,i){return {label:ind,
-    data:PRA.asset_names.map(function(_,a){return PRA.asset_industry_matrix?PRA.asset_industry_matrix[a][i]:0;}),
-    backgroundColor:i===0?'#3f5bd8':'#f47b20'};});
-  praRebuildGroupedChart('assetIndustry',PRA.asset_names,indDs,{legend:true});
-  praRebuildGroupedChart('assetSize',PRA.size_names,PRA.asset_names.map(function(a,i){return {label:a,data:PRA.asset_size_matrix[i]||[],backgroundColor:PRA_PAL[i%6]};}),{legend:true});
-  praRebuildGroupedChart('assetJob',PRA.job_names,PRA.asset_names.map(function(a,i){return {label:a,data:PRA.asset_job_matrix[i]||[],backgroundColor:PRA_PAL[i%6]};}),{legend:true,indexAxis:'y'});
-
-  [['openChart',PRA.asset_open_labels,PRA.asset_open_values],['clickChart',PRA.asset_click_labels,PRA.asset_click_values],['conversionChart',PRA.asset_conv_labels,PRA.asset_conv_values]].forEach(function(x){
-    praRebuildChart(x[0],'bar',x[1],x[2],{bg:PRA_PAL,indexAxis:'y',counts:x[2],total:sum(x[2])||1});
-  });
-  var rates=[PRA.delivery_rate||0,PRA.open_rate||0,PRA.click_rate||0,PRA.conversion_rate||0,PRA.bounce_rate||0];
-  praRebuildChart('statsChart','bar',['Delivered','Open','Clicks','Conversion','Bounce'],rates,
-    {bg:['#12a8b8','#4e7fd8','#f28a3d','#18a878','#7c5ce5'],indexAxis:'y',percent:true,
-     counts:[PRA.delivered,PRA.opens,PRA.clicks,PRA.conversion,PRA.bounced],pcts:rates});
-}
-
-/* ---------------- Location slide: Google Maps ---------------- */
-var praGMap=null, praMarkerList={}, praInfoWin=null, praMapRequested=false, praBounds=null;
-function praS5Visible(){var s=document.getElementById('s5');return !!s&&!s.classList.contains('hidden');}
-
-function praFallbackMap(note){
-  var map=document.getElementById('geoMap'); if(!map)return;
-  var first=PRA.country_labels[0]||'World';
-  map.innerHTML='<div style="width:100%;height:200px"><canvas id="praGeoChart"></canvas></div>'+
-    '<iframe id="praGoogleMap" title="Google Maps country location" src="https://www.google.com/maps?q='+encodeURIComponent(first)+'&output=embed" '+
-    'style="width:100%;height:220px;border:0" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>'+
-    '<div style="font-size:10px;color:#64748b;padding:4px 8px">'+praEsc(note||'Free embedded Google map. Run with --google-maps-key to get the interactive bubble map.')+'</div>';
-  map.style.height='450px'; map.style.overflow='hidden';
-  praRebuildChart('praGeoChart','bar',PRA.country_labels,PRA.country_values,{bg:'#f47b20',indexAxis:'y',counts:PRA.country_values,total:PRA.geo_total||1});
-}
-function praMapFail(msg){praGMap=null; praMapRequested=true; praFallbackMap(msg);}
-
-function praAddMarker(name,lat,lng,cnt,max){
-  var m=new google.maps.Marker({position:{lat:lat,lng:lng},map:praGMap,title:name+': '+cnt+' leads',
-    label:{text:String(cnt),color:'#fff',fontWeight:'700',fontSize:'12px'},
-    icon:{path:google.maps.SymbolPath.CIRCLE,scale:16+24*Math.sqrt(cnt/max),fillColor:'#f47b20',fillOpacity:0.85,strokeColor:'#fff',strokeWeight:2}});
-  m.addListener('click',function(){praFocusCountry(name);});
-  praMarkerList[name]={marker:m,count:cnt};
-  praBounds.extend({lat:lat,lng:lng});
-}
-function praFitAll(){
-  if(!praGMap||!praBounds||praBounds.isEmpty())return;
-  praGMap.fitBounds(praBounds,50);
-  google.maps.event.addListenerOnce(praGMap,'idle',function(){if(praGMap.getZoom()>5)praGMap.setZoom(4);});
-}
-function praBuildGoogleMap(){
-  var el=document.getElementById('praGMap'); if(!el||praGMap)return;
-  praGMap=new google.maps.Map(el,{center:{lat:30,lng:-20},zoom:2,minZoom:2,mapTypeControl:false,streetViewControl:false,
-    styles:[{featureType:'poi',stylers:[{visibility:'off'}]},{featureType:'road',stylers:[{visibility:'off'}]}]});
-  praInfoWin=new google.maps.InfoWindow(); praBounds=new google.maps.LatLngBounds();
-  var pts=(PRA.geo_spec&&PRA.geo_spec.points)?PRA.geo_spec.points:[];
-  var max=Math.max.apply(null,PRA.country_values.concat([1]));
-  var have={};
-  pts.forEach(function(p){have[p[0]]=1; praAddMarker(p[0],p[1],p[2],p[3],max);});
-  var geocoder=new google.maps.Geocoder();
-  PRA.country_labels.forEach(function(n,i){ if(have[n])return;
-    geocoder.geocode({address:n},function(r,st){ if(st==='OK'){var l=r[0].geometry.location; praAddMarker(n,l.lat(),l.lng(),PRA.country_values[i],max); praFitAll();}});});
-  praFitAll();
-}
-function praEnsureGoogleMap(){
-  if(!PRA.maps_key||!document.getElementById('praGMap'))return;
-  if(window.google&&google.maps&&google.maps.Map){
-    if(!praGMap)praBuildGoogleMap(); else {google.maps.event.trigger(praGMap,'resize'); praFitAll();}
-    return;
-  }
-  if(praMapRequested)return; praMapRequested=true;
-  window.gm_authFailure=function(){praMapFail('Google rejected the API key. Check that Maps JavaScript API is enabled, billing is active and the key allows this page. Showing the free embedded map instead.');};
-  window.praInitGoogleMap=function(){ if(praS5Visible())praBuildGoogleMap(); };
-  var sc=document.createElement('script');
-  sc.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(PRA.maps_key)+'&callback=praInitGoogleMap&v=weekly';
-  sc.async=true; sc.onerror=function(){praMapFail('Could not load Google Maps. Showing the free embedded map instead.');};
-  document.head.appendChild(sc);
-}
-function praFocusCountry(name){
-  var N=PRA.geo_total||1;
-  document.querySelectorAll('#s5 .geo-item').forEach(function(it){
-    var a=it.querySelector('a'); var on=a&&a.dataset.mapQuery===name;
-    it.style.background=on?'#fff4ea':''; it.style.borderLeftWidth=on?'6px':'';
-  });
-  var rec=praMarkerList[name];
-  if(praGMap&&rec){
-    praGMap.panTo(rec.marker.getPosition()); praGMap.setZoom(4);
-    praInfoWin.setContent('<div style="font:13px Arial"><b>'+praEsc(name)+'</b><br>'+praFmtN(rec.count)+' leads &middot; '+(rec.count/N*100).toFixed(1)+'%</div>');
-    praInfoWin.open(praGMap,rec.marker); return;
-  }
-  var f=document.getElementById('praGoogleMap');
-  if(f)f.src='https://www.google.com/maps?q='+encodeURIComponent(name)+'&output=embed';
-}
-
-function praUpdateSlide5(){
-  var s=document.getElementById('s5'); if(!s)return;
-  var names=PRA.country_labels, vals=PRA.country_values, N=PRA.geo_total||1, unique=names.length;
-  var mv=s.querySelector('.metric .value'); if(mv)mv.textContent=String(unique);
-  var ml=s.querySelector('.metric .label'); if(ml){var t=ml.lastChild; if(t&&t.nodeType===3)t.nodeValue='Unique Countries';}
-  var title=s.querySelector('.title');
-  if(title)title.textContent='Location Split \u00b7 '+(unique<=3?names.join(' \u00b7 '):names.slice(0,2).join(' \u00b7 ')+' +'+(unique-2)+' more');
-  var navItems=document.querySelectorAll('.slide-nav-item'); if(navItems[4]){var sm=navItems[4].querySelector('small'); if(sm)sm.textContent='Google Map';}
-  var geoList=s.querySelector('.geo-list');
-  if(geoList){geoList.innerHTML=PRA.geo_rows; geoList.style.maxHeight='230px'; geoList.style.overflowY='auto';
-    geoList.addEventListener('click',function(e){var a=e.target.closest('a[data-map-query]'); if(!a)return; e.preventDefault(); praFocusCountry(a.dataset.mapQuery);});}
-  var callout=s.querySelector('.callout');
-  if(callout){
-    var k=Math.min(5,unique), top=vals.slice(0,k).reduce(function(a,b){return a+b;},0);
-    callout.textContent=unique?('Top '+k+' location'+(k>1?'s':'')+' ('+names.slice(0,k).join(', ')+') account for '+praFmtN(top)+' of '+praFmtN(N)+' leads ('+(top/N*100).toFixed(1)+'%).'):'No geographic data is available in the raw lead file.';
-  }
-  var map=document.getElementById('geoMap');
-  if(map){
-    if(PRA.maps_key){
-      map.innerHTML='<div id="praGMap" style="width:100%;height:100%;border-radius:10px"></div>';
-      map.style.height='450px'; map.style.overflow='hidden';
-    } else { praFallbackMap(); }
-  }
-  try{window.geoInitialized=true;}catch(e){}
-  try{window.initMap=function(){return true;};}catch(e){}
-}
-
-/* ---------------- Decision-maker mix replaces the made-up device split ---------------- */
-function praRenameSection(root,oldT,newT){
-  root.querySelectorAll('.section').forEach(function(sec){
-    var c=sec.cloneNode(true); var ic=c.querySelector('.section-icon'); if(ic)ic.remove();
-    if(c.textContent.trim()!==oldT)return;
-    var nodes=[].filter.call(sec.childNodes,function(n){return n.nodeType===3;});
-    if(nodes.length)nodes[nodes.length-1].nodeValue=newT; else sec.appendChild(document.createTextNode(newT));
-  });
-}
-document.addEventListener('DOMContentLoaded',function(){
-  if(PRA.device_title==='Decision Maker Mix'){
-    var s4=document.getElementById('s4');
-    if(s4){
-      praRenameSection(s4,'Devices','Decision Makers vs Influencers');
-      praRenameSection(s4,'Device Mix','Decision Maker Mix');
-      var t=s4.querySelector('.title'); if(t)t.textContent='Industry, Company Size & Decision Maker Profile';
-    }
-    var nav=document.querySelectorAll('.slide-nav-item')[3]; if(nav){var b=nav.querySelector('b'); if(b)b.textContent='Industry, Decision Makers & Size';}
-  }
-  var s5=document.getElementById('s5');
-  if(s5){ new MutationObserver(function(){ if(praS5Visible())praEnsureGoogleMap(); }).observe(s5,{attributes:true,attributeFilter:['class']}); }
-});
-'''
-
 def js_dynamic_layer(data: dict[str, Any], df: pd.DataFrame, geo_spec: dict[str, Any]) -> str:
-    inputs_maps_key = data.get("maps_key", "")
     # JSON data used by browser-side JS for text + charts.
     top_job = data["job_levels"][0] if data["job_levels"] else ("N/A", 0)
-    top_industries = data["industries"][:2]
+    top_industries = data["industries"][:6]
     top_sizes = data["company_sizes"]
     top_assets = data["assets"]
 
@@ -921,9 +566,8 @@ def js_dynamic_layer(data: dict[str, Any], df: pd.DataFrame, geo_spec: dict[str,
     asset_click_labels, asset_click_values = chart_payload(data["asset_clicks"][:6])
     asset_conv_labels, asset_conv_values = chart_payload(data["asset_conversions"][:6])
 
-    # Industry x Asset matrix for Slide 6. The table uses its first two columns;
-    # the chart can use all six top industries.
-    industry_names = [x[0] for x in data["industries"][:6]]
+    # Industry x Asset matrix for Slide 6
+    industry_names = [x[0] for x in top_industries]
     asset_names = [x[0] for x in top_assets]
     matrix = build_matrix(df, data["asset_col"], data["industry_col"], asset_names, industry_names)
 
@@ -968,7 +612,7 @@ def js_dynamic_layer(data: dict[str, Any], df: pd.DataFrame, geo_spec: dict[str,
     device_total = sum(count for _, count in data["devices"])
     if data["devices"]:
         device_mix_text = " &nbsp; ".join(
-            f'<b style="color:{"var(--cyan)" if i == 0 else "var(--orange)"}">{pct_text(pct(count, device_total))}</b> {esc(name)} ({count:,})'
+            f'<b style="color:{"var(--cyan)" if i == 0 else "var(--orange)"}">{pct_text(pct(count, device_total))}</b> {esc(name)}'
             for i, (name, count) in enumerate(data["devices"])
         )
         if data["device_mix_is_estimate"]:
@@ -1085,8 +729,6 @@ def js_dynamic_layer(data: dict[str, Any], df: pd.DataFrame, geo_spec: dict[str,
         "device_labels": json.loads(device_labels),
         "device_values": json.loads(device_values),
         "device_mix_is_estimate": data["device_mix_is_estimate"],
-        "device_title": data["device_title"],
-        "maps_key": inputs_maps_key,
         "asset_open_labels": json.loads(asset_open_labels),
         "asset_open_values": json.loads(asset_open_values),
         "asset_click_labels": json.loads(asset_click_labels),
@@ -1130,6 +772,7 @@ def js_dynamic_layer(data: dict[str, Any], df: pd.DataFrame, geo_spec: dict[str,
 <!-- ==========================================================
      DYNAMIC PRA LAYER - generated by generate_dynamic_pra.py
      ========================================================== -->
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <script>
 const PRA = {data_json};
 
@@ -1382,20 +1025,16 @@ function praUpdateSlide6() {{
     headers[3].textContent = 'Total';
   }}
 
-  const chartGrid = s.querySelector('.grid.g3');
-  const industryPanel = s.querySelector('#assetIndustry')?.closest('.panel');
-  if (chartGrid && industryPanel) {{
-    chartGrid.style.gridTemplateColumns = 'repeat(3, minmax(0, 1fr))';
-    chartGrid.style.alignItems = 'start';
-    industryPanel.style.gridColumn = 'auto';
-    const industryChart = industryPanel.querySelector('.chartbox');
-    if (industryChart) industryChart.style.height = '300px';
-    if (!document.getElementById('praIndustryChartLayout')) {{
-      const style = document.createElement('style');
-      style.id = 'praIndustryChartLayout';
-      style.textContent = '@media(max-width:760px){{#s6 .grid.g3{{grid-template-columns:1fr!important}}}}';
-      document.head.appendChild(style);
-    }}
+  const industryPanel = [...s.querySelectorAll('.panel')].find(panel =>
+    panel.querySelector('.section')?.textContent.includes('Asset Engagement by Top Industries')
+  );
+  const topGrid = industryPanel?.parentElement;
+  if (industryPanel && topGrid?.classList.contains('g3')) {{
+    topGrid.style.gridTemplateColumns = 'repeat(2, minmax(0, 1fr))';
+    industryPanel.style.gridColumn = '1 / -1';
+    const chartBox = industryPanel.querySelector('.chartbox');
+    if (chartBox) chartBox.style.height = '430px';
+    topGrid.insertAdjacentElement('afterend', industryPanel);
   }}
 }}
 
@@ -1415,19 +1054,14 @@ function praUpdateAssetSlide(slideId, metricValue, metricLabel, noteText, tableM
   const value = s.querySelector('.asset-hero .value');
   const note = s.querySelector('.asset-hero .note');
   if (value) value.textContent = praNumber(metricValue);
-  if (note) {{
-    if ((slideId === 's8' || slideId === 's9') && !noteText) {{
-      note.remove();
-    }} else {{
-      note.textContent = noteText;
-    }}
-  }}
+  if (note) note.textContent = noteText;
 
-  if (slideId === 's8' || slideId === 's9' || slideId === 's10') {{
-    const layout = s.querySelector('.asset-split-layout');
-    const legendPanel = s.querySelector('.asset-legend-panel');
-    if (legendPanel) legendPanel.remove();
-    if (layout) layout.style.gridTemplateColumns = '175px minmax(0, 1fr)';
+  const legend = s.querySelector('.left-legend');
+  if (legend) {{
+    legend.innerHTML = PRA.asset_labels.slice(0,2).map((name, i) =>
+      '<div class="legend-item"><span class="dot" style="background:' +
+      (i === 0 ? '#3f5bd8' : '#f47b20') + '"></span>' + name + '</div>'
+    ).join('');
   }}
 
   const tbody = s.querySelector('table tbody');
@@ -1527,26 +1161,32 @@ function praUpdateCharts() {{
   );
 
   // Asset industry matrix
-  const industryDatasets = PRA.industry_labels.slice(0,6).map((industry, i) => ({{
+  const industryColors = ['#3f5bd8','#f47b20','#12a8b8','#18a878','#7c5ce5','#e66aa4'];
+  const industryDatasets = PRA.industry_labels.map((industry, i) => ({{
     label: industry,
-    data: PRA.asset_names.map((_, a) => PRA.asset_industry_matrix?.[a]?.[i] || 0),
-    backgroundColor: PRA_PAL[i % PRA_PAL.length]
+    data: PRA.asset_names.map((_, a) => PRA.asset_industry_matrix ? PRA.asset_industry_matrix[a][i] : 0),
+    backgroundColor: industryColors[i % industryColors.length]
   }}));
   praRebuildGroupedChart('assetIndustry', PRA.asset_names, industryDatasets, {{legend:true}});
 
   // Asset x employee size
+  const sizeColors = ['#3f5bd8','#f47b20','#12a8b8','#18a878','#7c5ce5','#e66aa4'];
+  const assetOpacity = ['ff','cc','99','77','55'];
   const sizeDatasets = PRA.asset_names.map((asset, i) => ({{
     label: asset,
     data: PRA.asset_size_matrix[i] || [],
-    backgroundColor: i === 0 ? '#3f5bd8' : '#f47b20'
+    backgroundColor: PRA.size_names.map((_, sizeIndex) =>
+      sizeColors[sizeIndex % sizeColors.length] + assetOpacity[i % assetOpacity.length]
+    )
   }}));
   praRebuildGroupedChart('assetSize', PRA.size_names, sizeDatasets, {{legend:true}});
 
   // Asset x job level
+  const assetColors = ['#3f5bd8','#f47b20','#12a8b8','#18a878','#9a58bd'];
   const jobDatasets = PRA.asset_names.map((asset, i) => ({{
     label: asset,
     data: PRA.asset_job_matrix[i] || [],
-    backgroundColor: PRA_PAL[i % PRA_PAL.length]
+    backgroundColor: assetColors[i % assetColors.length]
   }}));
   praRebuildGroupedChart('assetJob', PRA.job_names, jobDatasets, {{legend:true,indexAxis:'y'}});
 
@@ -1581,7 +1221,7 @@ function praUpdateSlide8to10() {{
     's8',
     PRA.opens,
     'Total Open Count',
-    '',
+    PRA.asset_open_values.slice(0,2).join(' + ') + ' opens',
     'open'
   );
 
@@ -1590,7 +1230,7 @@ function praUpdateSlide8to10() {{
     's9',
     PRA.clicks,
     'Total Click Count',
-    '',
+    PRA.asset_click_values.slice(0,2).join(' + ') + ' clicks',
     'click'
   );
 
@@ -1646,9 +1286,6 @@ document.addEventListener('DOMContentLoaded', function() {{
   praApplyAll();
 }});
 </script>
-<script>
-""" + PRA_EXTRA_JS + """
-</script>
 """
 
     return dynamic_layer
@@ -1684,7 +1321,6 @@ def collect_inputs() -> dict[str, Any]:
     print("Bounce Rate = Bounce / Sent\n")
 
     prepared_by = input("Prepared By [Quality Department]: ").strip() or "Quality Department"
-    maps_key = input("Google Maps API key (press Enter to use the free embedded map): ").strip()
 
     return {
         "campaign_name": campaign_name,
@@ -1697,7 +1333,6 @@ def collect_inputs() -> dict[str, Any]:
         "clicks": clicks,
         "conversion": conversion,
         "prepared_by": prepared_by,
-        "maps_key": maps_key,
     }
 
 
@@ -1707,14 +1342,12 @@ def build_report(template_path: Path, excel_path: Path, inputs: dict[str, Any]) 
     data = prepare_data(df, inputs)
 
     geo_spec = build_plotly_geo_spec(df)
-    inputs = dict(inputs)
-    inputs.setdefault("maps_key", "")
     # Plotly CDN is added only because the map is embedded dynamically.
     dynamic_layer = js_dynamic_layer(data, df, geo_spec)
 
     # Replace any previously generated data layer while retaining the template design.
     output_html = re.sub(
-      r"<!--\s*=+\s*DYNAMIC PRA LAYER.*?-->\s*(?:<script[^>]*></script>\s*)?<script>.*?</script>\s*(?:<script>\s*//\s*PRA-EXTRA.*?</script>\s*)?",
+      r"<!--\s*=+\s*DYNAMIC PRA LAYER.*?-->\s*<script[^>]*>\s*</script>\s*<script>.*?</script>\s*",
       "",
       template,
       flags=re.DOTALL,
@@ -1730,8 +1363,6 @@ def build_report(template_path: Path, excel_path: Path, inputs: dict[str, Any]) 
         dynamic_layer + "\n" + marker,
         1
     )
-
-    output_html = add_summary_slide(output_html, column_summaries(df), len(df))
 
     # Make page title dynamic without changing layout.
     output_html = re.sub(
@@ -1777,8 +1408,6 @@ def main() -> None:
     parser.add_argument("--clicks", type=int)
     parser.add_argument("--conversion", type=int)
     parser.add_argument("--prepared-by", default="Quality Department")
-    parser.add_argument("--google-maps-key", default=os.environ.get("GOOGLE_MAPS_API_KEY", ""),
-                        help="Google Maps JavaScript API key (or set GOOGLE_MAPS_API_KEY)")
 
     args = parser.parse_args()
 
@@ -1817,13 +1446,9 @@ def main() -> None:
             "clicks": args.clicks,
             "conversion": args.conversion,
             "prepared_by": args.prepared_by,
-            "maps_key": args.google_maps_key,
         }
     else:
         inputs = collect_inputs()
-
-    if not inputs.get("maps_key"):
-        inputs["maps_key"] = args.google_maps_key
 
     build_report(template_path, excel_path, inputs)
 

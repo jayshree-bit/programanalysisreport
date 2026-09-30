@@ -246,6 +246,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const span=document.createElement('span'); span.className='section-icon'; span.textContent=icon; el.prepend(span);
   });
   document.querySelectorAll('.metric .label').forEach(el=>{
+    if(el.closest('.stats-card')) return;
     if(el.querySelector('.metric-icon')) return;
     const key=el.textContent.trim().toLowerCase();
     const icon=key.includes('lead')?'◉':key.includes('asset')?'◈':key.includes('sent')?'➤':key.includes('deliver')?'✓':key.includes('open')?'◔':key.includes('click')?'⌁':key.includes('conversion')?'◆':key.includes('bounce')?'⊘':'✦';
