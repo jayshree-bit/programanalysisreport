@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Program Analysis Report</title>
+<script>
+  try {
+    var m = localStorage.getItem("pra_theme") || "auto";
+    var d = m === "dark" || (m === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    document.documentElement.setAttribute("data-bs-theme", d ? "dark" : "light");
+  } catch (e) {}
+</script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css">
+<style>
+  body { background: var(--bs-tertiary-bg); }
+  .form-pane { height: 100vh; overflow-y: auto; }
+  .preview-pane { height: 100vh; overflow-y: auto; }
+  @media (max-width: 991.98px) {
+    .form-pane, .preview-pane { height: auto; overflow: visible; }
+  }
+  .req::after { content: " *"; color: var(--bs-danger); }
+  .calc-box { background: var(--bs-tertiary-bg); border: 1px dashed var(--bs-border-color); border-radius: .5rem; }
+  .calc-box small { display: block; color: var(--bs-secondary-color); }
+  .calc-box b { font-variant-numeric: tabular-nums; }
+
+  .tpl { cursor: pointer; border: 2px solid var(--bs-border-color); border-radius: .6rem; padding: .55rem .7rem; background: var(--bs-body-bg); }
+  .tpl:hover { border-color: var(--bs-primary); }
+  .tpl.active { border-color: var(--bs-primary); box-shadow: 0 0 0 .2rem rgba(var(--bs-primary-rgb), .2); }
+  .tpl .name { font-size: .85rem; font-weight: 600; margin-bottom: .35rem; }
+  .strip { display: flex; height: 16px; border-radius: 4px; overflow: hidden; }
+  .strip span { flex: 1; }
+  .tpl .mini { display: flex; align-items: flex-end; gap: 6px; height: 54px; }
+  .tpl .mini svg { display: block; }
+  .chip-row { display: flex; align-items: center; gap: .6rem; padding: .3rem 0; border-bottom: 1px solid var(--bs-border-color); }
+  .chip-row:last-child { border-bottom: 0; }
+  .chip { width: 22px; height: 22px; border-radius: 5px; flex: none; border: 1px solid rgba(0,0,0,.15); }
+  .swatch { width: 36px; height: 36px; padding: 2px; }
+
+  .lead-dropzone {
+    position: relative;
+    display: flex;
+    min-height: 164px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: .4rem;
+    padding: 1.25rem;
+    border: 2px dashed var(--bs-border-color);
+    border-radius: .65rem;
+    background: var(--bs-tertiary-bg);
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .16s ease, background-color .16s ease, transform .16s ease;
+  }
+  .lead-dropzone:hover, .lead-dropzone.is-dragging {
+    border-color: var(--bs-primary);
+    background: rgba(var(--bs-primary-rgb), .08);
+  }
+  .lead-dropzone.is-dragging { transform: scale(1.01); }
+  .lead-dropzone:focus-within { outline: 3px solid rgba(var(--bs-primary-rgb), .25); outline-offset: 2px; }
+  .lead-file-input { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
+  .lead-upload-icon {
+    display: grid;
+    width: 42px;
+    height: 42px;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--bs-body-bg);
+    color: var(--bs-primary);
+    font-size: 1.45rem;
+    line-height: 1;
+  }
+  .lead-file-status { overflow-wrap: anywhere; }
+  .lead-file-status:empty { display: none; }
+
+  .chart-card canvas { max-height: 280px; }
+  .empty-note { color: var(--bs-secondary-color); }
+  #result { display: none; }
+</style>
+</head>
+<body>
+<div class="container-fluid">
+  <div class="row">
+
+    <!-- ================= LEFT: FORM ================= -->
+    <div class="col-lg-5 col-xl-4 form-pane py-4 px-3 px-lg-4 bg-body border-end">
+      <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+        <h1 class="h4 mb-0">Program Analysis Report</h1>
+        <div class="btn-group btn-group-sm" role="group" aria-label="Colour mode" id="theme_group">
+          <button type="button" class="btn btn-outline-secondary" data-mode="light">Light</button>
+          <button type="button" class="btn btn-outline-secondary" data-mode="dark">Dark</button>
+          <button type="button" class="btn btn-outline-secondary" data-mode="auto">Auto</button>
+        </div>
+      </div>
+      <p class="text-secondary small mb-4">Fill in the campaign inputs. The graphs on the right update as you type.</p>
+
+      <form id="pra-form" novalidate>
+
+        <h2 class="h6 text-uppercase text-secondary">Campaign</h2>
+        <div class="mb-3">
+          <label class="form-label req" for="campaign_name">Campaign Name</label>
+          <input type="text" class="form-control" id="campaign_name" name="campaign_name" placeholder="e.g. Q3 Cloud Security Webinar">
+        </div>
+        <div class="row g-3 mb-3">
+          <div class="col-12 col-md-4">
+            <label class="form-label req" for="report_date">Report Date</label>
+            <input type="date" class="form-control" id="report_date" name="report_date">
+          </div>
+          <div class="col-6 col-md-4">
+            <label class="form-label req" for="start_date">Start Date</label>
+            <input type="date" class="form-control" id="start_date" name="start_date">
+          </div>
+          <div class="col-6 col-md-4">
+            <label class="form-label req" for="end_date">End Date</label>
+            <input type="date" class="form-control" id="end_date" name="end_date">
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="form-label" for="prepared_by">Prepared By</label>
+          <input type="text" class="form-control" id="prepared_by" name="prepared_by" placeholder="Quality Department">
+        </div>
+
+        <h2 class="h6 text-uppercase text-secondary">Email performance</h2>
+        <div class="row g-3 mb-3">
+          <div class="col-6">
+            <label class="form-label req" for="sent">Sent</label>
+            <input type="text" inputmode="numeric" class="form-control num" id="sent" name="sent" placeholder="0">
+          </div>
+          <div class="col-6">
+            <label class="form-label req" for="delivered">Delivered</label>
+            <input type="text" inputmode="numeric" class="form-control num" id="delivered" name="delivered" placeholder="0">
+            <div class="invalid-feedback" id="delivered_fb">Delivered cannot be greater than Sent.</div>
+          </div>
+          <div class="col-4">
+            <label class="form-label req" for="opens">Opens</label>
+            <input type="text" inputmode="numeric" class="form-control num" id="opens" name="opens" placeholder="0">
+          </div>
+          <div class="col-4">
+            <label class="form-label req" for="clicks">Clicks</label>
+            <input type="text" inputmode="numeric" class="form-control num" id="clicks" name="clicks" placeholder="0">
+          </div>
+          <div class="col-4">
+            <label class="form-label req" for="conversion">Conversion</label>
+            <input type="text" inputmode="numeric" class="form-control num" id="conversion" name="conversion" placeholder="0">
+          </div>
+        </div>
+        <div class="calc-box p-3 mb-4">
+          <div class="small text-secondary mb-2">Calculated automatically</div>
+          <div class="row row-cols-3 g-2 small">
+            <div class="col"><small>Bounce</small><b id="c_bounce">–</b></div>
+            <div class="col"><small>Delivery rate</small><b id="c_delivery">–</b></div>
+            <div class="col"><small>Open rate</small><b id="c_open">–</b></div>
+            <div class="col"><small>Click rate</small><b id="c_click">–</b></div>
+            <div class="col"><small>Conversion rate</small><b id="c_conv">–</b></div>
+            <div class="col"><small>Bounce rate</small><b id="c_bouncerate">–</b></div>
+          </div>
+        </div>
+
+        <h2 class="h6 text-uppercase text-secondary">Raw leads file</h2>
+        <div class="mb-4">
+          <label class="form-label req" for="excel">Leads file</label>
+          <label class="lead-dropzone" id="lead_dropzone" for="excel">
+            <input type="file" class="lead-file-input" id="excel" name="excel" accept=".xlsx,.xls,.ods,.csv" aria-describedby="lead_file_help lead_file_status">
+            <span class="lead-upload-icon" aria-hidden="true">↑</span>
+            <span class="fw-semibold">Drag and drop your leads file here</span>
+            <span class="small text-secondary">or <span class="text-primary text-decoration-underline">browse files</span></span>
+          </label>
+          <div class="form-text mt-2" id="lead_file_help">Excel or CSV · up to 25 MB</div>
+          <div class="lead-file-status d-flex align-items-center justify-content-between gap-2 mt-2 small" id="lead_file_status" aria-live="polite"></div>
+        </div>
+
+        <h2 class="h6 text-uppercase text-secondary">Colour template</h2>
+        <div class="row g-2 mb-2" id="templates"></div>
+        <div class="d-flex flex-wrap gap-2 align-items-center mb-1" id="swatches"></div>
+        <div class="d-flex gap-2 mb-1">
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="add_color">Add colour</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="remove_color">Remove last</button>
+        </div>
+        <div class="form-text mb-4">Pick a template, then fine-tune any colour. Changes show in the graphs immediately and are used in the generated report.</div>
+        <input type="hidden" id="palette" name="palette">
+
+        <h2 class="h6 text-uppercase text-secondary">Optional</h2>
+        <div class="mb-3">
+          <label class="form-label" for="date_format">Date format</label>
+          <select class="form-select" id="date_format" name="date_format">
+            <!-- Values must match the keys of DATE_FORMATS in the generator script -->
+            <option value="month_year" selected>Month Year (e.g. Jul 2026)</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="logo">Logo</label>
+          <input type="file" class="form-control" id="logo" name="logo" accept=".png,.jpg,.jpeg,.svg,.webp,.gif">
+          <div class="form-text">PNG, JPG, SVG, WEBP or GIF, max 2 MB.</div>
+        </div>
+        <div class="mb-4">
+          <label class="form-label" for="maps_key">Google Maps API key</label>
+          <input type="text" class="form-control" id="maps_key" name="maps_key" autocomplete="off" placeholder="Leave blank to skip">
+        </div>
+
+        <div id="alert" class="alert alert-danger py-2 d-none" role="alert"></div>
+        <div id="result" class="alert alert-success py-2" role="status">
+          <div class="fw-semibold">Your report is ready.</div>
+          <div class="small text-break mb-2" id="result_name"></div>
+          <a id="open_link" class="btn btn-sm btn-success" target="_blank" rel="noopener" href="#">Open report</a>
+          <a id="dl_link" class="btn btn-sm btn-outline-success" href="#">Download</a>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100 py-2 mb-4" id="go">
+          <span class="spinner-border spinner-border-sm me-2 d-none" id="spin" aria-hidden="true"></span>Generate report
+        </button>
+      </form>
+    </div>
+
+    <!-- ================= RIGHT: LIVE GRAPHS ================= -->
+    <div class="col-lg-7 col-xl-8 preview-pane py-4 px-3 px-lg-4">
+      <div class="d-flex justify-content-between align-items-start mb-3">
+        <div>
+          <h2 class="h5 mb-0" id="pv_title">Campaign preview</h2>
+          <div class="small text-secondary" id="pv_sub">Enter the numbers to see the graphs.</div>
+        </div>
+        <span class="badge text-bg-secondary" id="pv_tpl">Template</span>
+      </div>
+
+      <div class="row g-3 mb-3" id="kpis"></div>
+
+      <div class="card mb-3"><div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h3 class="h6 mb-0">Colour combination</h3>
+          <span class="small text-secondary" id="combo_name"></span>
+        </div>
+        <div id="combo"></div>
+      </div></div>
+
+      <div class="row g-3">
+        <div class="col-12">
+          <div class="card chart-card"><div class="card-body">
+            <h3 class="h6">Campaign funnel</h3>
+            <canvas id="ch_funnel"></canvas>
+          </div></div>
+        </div>
+        <div class="col-md-6">
+          <div class="card chart-card h-100"><div class="card-body">
+            <h3 class="h6">Delivered vs bounced</h3>
+            <canvas id="ch_split"></canvas>
+          </div></div>
+        </div>
+        <div class="col-md-6">
+          <div class="card chart-card h-100"><div class="card-body">
+            <h3 class="h6">Rates (%)</h3>
+            <canvas id="ch_rates"></canvas>
+          </div></div>
+        </div>
+      </div>
+      <p class="empty-note small mt-3 mb-0">This is a quick preview of your inputs. The full report also includes the audience, industry, location and asset charts built from the leads file.</p>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+
+  // ---- light / dark / auto (remembered between visits) ------------
+  const mq = window.matchMedia("(prefers-color-scheme: dark)");
+  let mode = "auto";
+  try { mode = localStorage.getItem("pra_theme") || "auto"; } catch (e) {}
+  function applyTheme() {
+    const dark = mode === "dark" || (mode === "auto" && mq.matches);
+    document.documentElement.setAttribute("data-bs-theme", dark ? "dark" : "light");
+    document.querySelectorAll("#theme_group button").forEach((b) => {
+      const on = b.dataset.mode === mode;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+    if (typeof render === "function") render();
+  }
+  mq.addEventListener("change", () => { if (mode === "auto") applyTheme(); });
+  $("theme_group").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-mode]");
+    if (!b) return;
+    mode = b.dataset.mode;
+    try { localStorage.setItem("pra_theme", mode); } catch (err) {}
+    applyTheme();
+  });
+
+  // ---- colour templates -------------------------------------------
+  // "Template default" uses the colours already in the report template,
+  // so nothing is overridden when it is selected.
+  const TEMPLATES = [
+    { id: "default", name: "Template default", useTemplate: true,
+      colors: ["#3f5bd8", "#4e7fd8", "#18a878", "#f28a3d", "#7c5ce5", "#12a8b8", "#e66aa4", "#64748b"] },
+    { id: "ocean",   name: "Ocean",   colors: ["#0b5394", "#1e88c9", "#12a8b8", "#5fd0c4", "#7fb8e6", "#2c3e75", "#8bd3dd", "#64748b"] },
+    { id: "sunset",  name: "Sunset",  colors: ["#f47b20", "#f28a3d", "#e66aa4", "#c2410c", "#fbbf77", "#a63e00", "#f0917d", "#64748b"] },
+    { id: "forest",  name: "Forest",  colors: ["#18a878", "#2f855a", "#7bc47f", "#0f766e", "#a3d9a5", "#365314", "#4fb99f", "#64748b"] },
+    { id: "violet",  name: "Violet",  colors: ["#7c5ce5", "#8d6de7", "#a78bfa", "#5b3fc4", "#c4b5fd", "#3b2a8c", "#e66aa4", "#64748b"] },
+    { id: "mono",    name: "Slate",   colors: ["#1e293b", "#334155", "#475569", "#64748b", "#94a3b8", "#cbd5e1", "#0f172a", "#7c8ba1"] },
+  ];
+  let current = TEMPLATES[0];
+  let palette = TEMPLATES[0].colors.slice();
+
+  // Small bar + doughnut sample drawn with the template's own colours
+  function miniGraphs(c) {
+    const h = [46, 38, 28, 18, 10];
+    const bars = h.map((v, i) => `<rect x="${i * 13}" y="${52 - v}" width="10" height="${v}" rx="2" fill="${c[i % c.length]}"/>`).join("");
+    const r = 16, L = 2 * Math.PI * r, share = 0.72;
+    const donut = `<circle cx="22" cy="26" r="${r}" fill="none" stroke="${c[3 % c.length]}" stroke-width="9"/>
+      <circle cx="22" cy="26" r="${r}" fill="none" stroke="${c[2 % c.length]}" stroke-width="9"
+        stroke-dasharray="${(L * share).toFixed(1)} ${L.toFixed(1)}" transform="rotate(-90 22 26)"/>`;
+    return `<svg width="66" height="54" viewBox="0 0 66 54" aria-hidden="true">${bars}</svg>
+            <svg width="44" height="54" viewBox="0 0 44 54" aria-hidden="true">${donut}</svg>`;
+  }
+  const tplBox = $("templates");
+  TEMPLATES.forEach((t) => {
+    const col = document.createElement("div");
+    col.className = "col-6";
+    col.innerHTML = `<div class="tpl" role="button" tabindex="0" data-id="${t.id}">
+        <div class="name">${t.name}</div>
+        <div class="mini">${miniGraphs(t.colors)}</div>
+      </div>`;
+    tplBox.appendChild(col);
+  });
+  function selectTemplate(id) {
+    current = TEMPLATES.find((t) => t.id === id);
+    palette = current.colors.slice();
+    drawSwatches(); markActive(); render();
+  }
+  function markActive() {
+    tplBox.querySelectorAll(".tpl").forEach((el) => el.classList.toggle("active", el.dataset.id === current.id));
+    $("pv_tpl").textContent = current.name;
+  }
+  tplBox.addEventListener("click", (e) => { const el = e.target.closest(".tpl"); if (el) selectTemplate(el.dataset.id); });
+  tplBox.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { const el = e.target.closest(".tpl"); if (el) { e.preventDefault(); selectTemplate(el.dataset.id); } }
+  });
+
+  function drawSwatches() {
+    const box = $("swatches");
+    box.innerHTML = "";
+    palette.forEach((c, i) => {
+      const input = document.createElement("input");
+      input.type = "color"; input.value = c; input.className = "form-control form-control-color swatch";
+      input.setAttribute("aria-label", "Colour " + (i + 1));
+      input.addEventListener("input", () => { palette[i] = input.value; current = Object.assign({}, current, { useTemplate: false, name: current.name.replace(/ \(edited\)$/, "") + " (edited)" }); markActive(); render(); });
+      box.appendChild(input);
+    });
+  }
+  $("add_color").addEventListener("click", () => { palette.push("#3f5bd8"); current = Object.assign({}, current, { useTemplate: false }); drawSwatches(); render(); });
+  $("remove_color").addEventListener("click", () => { if (palette.length > 1) { palette.pop(); current = Object.assign({}, current, { useTemplate: false }); drawSwatches(); render(); } });
+
+  // ---- numbers & derived metrics ----------------------------------
+  const intOf = (id) => { const v = $(id).value.replace(/,/g, "").trim(); return /^\d+$/.test(v) ? parseInt(v, 10) : null; };
+  const pctNum = (a, b) => (a === null || b === null || b === 0) ? null : a / b * 100;
+  const pctTxt = (v) => v === null ? "–" : v.toFixed(1) + "%";
+  const fmt = (v) => v === null ? "–" : v.toLocaleString();
+
+  function metrics() {
+    const sent = intOf("sent"), del = intOf("delivered"), op = intOf("opens"), cl = intOf("clicks"), cv = intOf("conversion");
+    const bounce = (sent !== null && del !== null && sent >= del) ? sent - del : null;
+    return { sent, del, op, cl, cv, bounce,
+      delivery: pctNum(del, sent), open: pctNum(op, del), click: pctNum(cl, del),
+      conv: pctNum(cv, del), bounceRate: bounce === null ? null : pctNum(bounce, sent) };
+  }
+
+  // ---- charts ------------------------------------------------------
+  const charts = {};
+  const textColor = () => getComputedStyle(document.body).getPropertyValue("--bs-body-color").trim() || "#222";
+  const gridColor = () => getComputedStyle(document.body).getPropertyValue("--bs-border-color").trim() || "#ddd";
+
+  function upsert(key, canvasId, config) {
+    if (charts[key]) { charts[key].destroy(); }
+    charts[key] = new Chart($(canvasId), config);
+  }
+  const pick = (i) => palette[i % palette.length];
+
+  function render() {
+    const m = metrics();
+
+    // header + labels
+    $("pv_title").textContent = $("campaign_name").value.trim() || "Campaign preview";
+    const sd = $("start_date").value, ed = $("end_date").value;
+    $("pv_sub").textContent = (sd && ed) ? `${sd} to ${ed}` : "Enter the numbers to see the graphs.";
+
+    // Sent must be >= Delivered
+    const bad = m.sent !== null && m.del !== null && m.del > m.sent;
+    $("delivered").classList.toggle("is-invalid", bad);
+    $("delivered").setAttribute("aria-invalid", bad ? "true" : "false");
+    $("go").disabled = bad;
+
+    $("c_bounce").textContent = fmt(m.bounce);
+    $("c_delivery").textContent = pctTxt(m.delivery);
+    $("c_open").textContent = pctTxt(m.open);
+    $("c_click").textContent = pctTxt(m.click);
+    $("c_conv").textContent = pctTxt(m.conv);
+    $("c_bouncerate").textContent = pctTxt(m.bounceRate);
+
+    // KPI tiles
+    const kp = [["Sent", fmt(m.sent)], ["Delivered", fmt(m.del)], ["Open rate", pctTxt(m.open)], ["Click rate", pctTxt(m.click)], ["Conversion", pctTxt(m.conv)]];
+    $("kpis").innerHTML = kp.map((k, i) => `
+      <div class="col-6 col-md"><div class="card h-100" style="border-top:4px solid ${pick(i)}"><div class="card-body py-2 px-3">
+        <div class="small text-secondary">${k[0]}</div><div class="fs-5 fw-semibold">${k[1]}</div></div></div></div>`).join("");
+
+    // colour combination panel: which colour feeds which graph element
+    const uses = {};
+    const add = (i, label) => { const k = i % palette.length; (uses[k] = uses[k] || []).push(label); };
+    ["Sent", "Delivered", "Opens", "Clicks", "Conversion"].forEach((n, i) => add(i, "Funnel: " + n));
+    add(2, "Split: Delivered"); add(3, "Split: Bounced");
+    ["Delivery", "Open", "Click", "Conversion", "Bounce"].forEach((n, i) => add(i + 1, "Rates: " + n));
+    $("combo_name").textContent = current.name;
+    $("combo").innerHTML = palette.map((c, i) => `
+      <div class="chip-row"><span class="chip" style="background:${c}"></span>
+        <code class="small">${c}</code>
+        <span class="small text-secondary ms-auto text-end">${(uses[i] || ["Not used in preview"]).join(", ")}</span></div>`).join("");
+
+    const tc = textColor(), gc = gridColor();
+    Chart.defaults.color = tc;
+    Chart.defaults.borderColor = gc;
+    const num = (v) => v === null ? 0 : v;
+
+    // funnel
+    upsert("funnel", "ch_funnel", {
+      type: "bar",
+      data: { labels: ["Sent", "Delivered", "Opens", "Clicks", "Conversion"],
+        datasets: [{ data: [m.sent, m.del, m.op, m.cl, m.cv].map(num), backgroundColor: [0, 1, 2, 3, 4].map(pick), borderRadius: 6 }] },
+      options: { indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true }, y: { grid: { display: false } } } }
+    });
+
+    // delivered vs bounced
+    const bounce = m.bounce === null ? 0 : m.bounce;
+    upsert("split", "ch_split", {
+      type: "doughnut",
+      data: { labels: ["Delivered", "Bounced"], datasets: [{ data: [num(m.del), bounce], backgroundColor: [pick(2), pick(3)], borderWidth: 0 }] },
+      options: { cutout: "62%", plugins: { legend: { position: "bottom" } } }
+    });
+
+    // rates
+    upsert("rates", "ch_rates", {
+      type: "bar",
+      data: { labels: ["Delivery", "Open", "Click", "Conversion", "Bounce"],
+        datasets: [{ data: [m.delivery, m.open, m.click, m.conv, m.bounceRate].map((v) => v === null ? 0 : +v.toFixed(1)),
+          backgroundColor: [1, 2, 3, 4, 5].map(pick), borderRadius: 6 }] },
+      options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, suggestedMax: 100 }, x: { grid: { display: false } } } }
+    });
+  }
+
+  document.querySelectorAll("#pra-form input").forEach((el) => el.addEventListener("input", render));
+
+  // ---- leads file drop zone ---------------------------------------
+  const leadInput = $("excel");
+  const leadDropzone = $("lead_dropzone");
+  const leadFileStatus = $("lead_file_status");
+  function showLeadFile(file) {
+    leadFileStatus.replaceChildren();
+    if (!file) return;
+
+    const details = document.createElement("span");
+    const size = file.size < 1024 * 1024
+      ? `${Math.max(1, Math.round(file.size / 1024))} KB`
+      : `${(file.size / (1024 * 1024)).toFixed(1)} MB`;
+    details.textContent = `${file.name} · ${size}`;
+    details.className = "text-body-secondary";
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "btn btn-sm btn-outline-secondary flex-shrink-0";
+    remove.textContent = "Remove";
+    remove.setAttribute("aria-label", `Remove ${file.name}`);
+    remove.addEventListener("click", () => {
+      leadInput.value = "";
+      showLeadFile(null);
+    });
+    leadFileStatus.append(details, remove);
+  }
+
+  leadInput.addEventListener("change", () => showLeadFile(leadInput.files[0]));
+  ["dragenter", "dragover"].forEach((eventName) => leadDropzone.addEventListener(eventName, (event) => {
+    event.preventDefault();
+    leadDropzone.classList.add("is-dragging");
+  }));
+  ["dragleave", "drop"].forEach((eventName) => leadDropzone.addEventListener(eventName, (event) => {
+    event.preventDefault();
+    if (eventName === "drop") {
+      const file = event.dataTransfer.files[0];
+      if (file) {
+        const transfer = new DataTransfer();
+        transfer.items.add(file);
+        leadInput.files = transfer.files;
+        showLeadFile(file);
+      }
+    }
+    leadDropzone.classList.remove("is-dragging");
+  }));
+
+  // ---- validation & submit ----------------------------------------
+  function showAlert(msg) { const a = $("alert"); a.textContent = msg; a.classList.toggle("d-none", !msg); }
+
+  function validate() {
+    if (!$("campaign_name").value.trim()) return "Campaign Name is required.";
+    for (const [id, label] of [["report_date", "Report Date"], ["start_date", "Start Date"], ["end_date", "End Date"]]) {
+      if (!$(id).value) return label + " is required.";
+    }
+    if ($("end_date").value < $("start_date").value) return "End Date cannot be before Start Date.";
+    for (const id of ["sent", "delivered", "opens", "clicks", "conversion"]) {
+      if (intOf(id) === null) return id.charAt(0).toUpperCase() + id.slice(1) + " must be a whole number (0 or more).";
+    }
+    if (intOf("delivered") > intOf("sent")) return "Delivered cannot be greater than Sent.";
+    if (!$("excel").files.length) return "Please choose the raw leads file.";
+    const logo = $("logo").files[0];
+    if (logo && logo.size > 2 * 1024 * 1024) return "Logo image must be 2 MB or smaller.";
+    return null;
+  }
+
+  $("pra-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    $("result").style.display = "none";
+    const problem = validate();
+    showAlert(problem || "");
+    if (problem) return;
+
+    // template default => send nothing so the template keeps its own colours
+    $("palette").value = current.useTemplate ? "" : palette.join(",");
+    const data = new FormData($("pra-form"));
+    ["sent", "delivered", "opens", "clicks", "conversion"].forEach((k) => data.set(k, String(intOf(k))));
+    if (!$("logo").files.length) data.delete("logo");
+
+    $("go").disabled = true; $("spin").classList.remove("d-none");
+    try {
+      const res = await fetch("/api/generate", { method: "POST", body: data });
+      const json = await res.json().catch(() => ({ ok: false, error: "Unexpected server response." }));
+      if (!res.ok || !json.ok) throw new Error(json.error || "Report generation failed.");
+      $("result_name").textContent = json.name;
+      $("open_link").href = json.url;
+      $("dl_link").href = json.url + "?download=1";
+      $("result").style.display = "block";
+      $("result").scrollIntoView({ behavior: "smooth", block: "nearest" });
+    } catch (err) {
+      showAlert(err.message);
+    } finally {
+      $("spin").classList.add("d-none"); render();
+    }
+  });
+
+  // ---- init --------------------------------------------------------
+  $("report_date").value = new Date().toISOString().slice(0, 10);
+  drawSwatches(); markActive(); applyTheme();
+})();
+</script>
+</body>
+</html>

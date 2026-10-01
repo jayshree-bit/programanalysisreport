@@ -219,17 +219,19 @@ def input_int(prompt: str, minimum: int = 0) -> int:
 
 
 def read_raw_leads(excel_path: Path) -> pd.DataFrame:
+    if excel_path.suffix.lower() == ".csv":
+        return pd.read_csv(excel_path)
     if excel_path.suffix.lower() == ".ods":
         try:
-            sheets = pd.ExcelFile(excel_path, engine="odf").sheet_names
-            sheet = "Sheet1" if "Sheet1" in sheets else sheets[0]
-            return pd.read_excel(excel_path, engine="odf", sheet_name=sheet)
+            with pd.ExcelFile(excel_path, engine="odf") as book:
+                sheet = "Sheet1" if "Sheet1" in book.sheet_names else book.sheet_names[0]
+                return book.parse(sheet)
         except Exception:
             pass
 
-    sheets = pd.ExcelFile(excel_path).sheet_names
-    sheet = "Sheet1" if "Sheet1" in sheets else sheets[0]
-    return pd.read_excel(excel_path, sheet_name=sheet)
+    with pd.ExcelFile(excel_path) as book:
+        sheet = "Sheet1" if "Sheet1" in book.sheet_names else book.sheet_names[0]
+        return book.parse(sheet)
 
 
 def ordered_job_levels(pairs: list[tuple[str, int]]) -> list[tuple[str, int]]:
@@ -665,13 +667,55 @@ def build_matrix(df: pd.DataFrame, row_col: str | None, col_col: str | None, row
 
 PRA_EXTRA_JS = r'''// PRA-EXTRA: count + percentage labels, Google Maps location slide, decision-maker mix
 var PRA_PAL=['#4e7fd8','#f28a3d','#12a8b8','#18a878','#7c5ce5','#e66aa4'];
+if(typeof PRA!=='undefined'&&PRA.palette&&PRA.palette.length>=2)PRA_PAL=PRA.palette.slice();
+function praC(i){return PRA_PAL[i%PRA_PAL.length];}
 function praFmtN(n){return Number(n||0).toLocaleString('en-US');}
 function praEsc(t){return String(t).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 
+/* ---------------- Chart style: 2D / 3D ---------------- */
+var PRA_MODE=(function(){try{return localStorage.getItem('praChartMode')||'3d';}catch(e){return '3d';}})();
+var PRA_DEPTH=9;
+function praIs3D(){return PRA_MODE==='3d';}
+function praShade(c,f){var m=/^#([0-9a-f]{6})$/i.exec(c||'');if(!m)return c;var n=parseInt(m[1],16),r=n>>16,g=(n>>8)&255,b=n&255;
+  var t=function(v){return Math.round(f<0?v*(1+f):v+(255-v)*f);};return 'rgb('+t(r)+','+t(g)+','+t(b)+')';}
+function praColorAt(ds,i){var c=ds.praColors||ds.hoverBackgroundColor||ds.backgroundColor;return Array.isArray(c)?c[i%c.length]:c;}
+function praDepthOf(chart,el){var horiz=chart.options.indexAxis==='y';var s=horiz?el.height:el.width;return Math.max(3,Math.min(PRA_DEPTH,(s||20)*0.35));}
+
 if (typeof Chart !== 'undefined') {
+  // 3D extrusion: side/top faces for bars, a raised base for doughnuts. Drawn before the front faces.
+  Chart.register({id:'praDepth', beforeDatasetsDraw:function(chart){
+    if(!praIs3D())return; var ctx=chart.ctx, t=chart.config.type;
+    ctx.save();
+    chart.data.datasets.forEach(function(ds,di){
+      var meta=chart.getDatasetMeta(di); if(meta.hidden)return;
+      meta.data.forEach(function(el,i){
+        var col=praColorAt(ds,i); if(typeof col!=='string')return;
+        if(t==='doughnut'||t==='pie'){
+          if(!chart.getDataVisibility(i))return;
+          var D=PRA_DEPTH; ctx.fillStyle=praShade(col,-0.35);
+          for(var k=D;k>=1;k--){ctx.beginPath();ctx.arc(el.x,el.y+k,el.outerRadius,el.startAngle,el.endAngle);
+            ctx.arc(el.x,el.y+k,el.innerRadius,el.endAngle,el.startAngle,true);ctx.closePath();ctx.fill();}
+          return;
+        }
+        if(t!=='bar')return;
+        var horiz=chart.options.indexAxis==='y', d=praDepthOf(chart,el);
+        var L,R,T,B;
+        if(horiz){L=Math.min(el.x,el.base);R=Math.max(el.x,el.base);T=el.y-el.height/2;B=el.y+el.height/2;}
+        else{L=el.x-el.width/2;R=el.x+el.width/2;T=Math.min(el.y,el.base);B=Math.max(el.y,el.base);}
+        if(!(R-L>0.5)||!(B-T>0.5))return;
+        ctx.fillStyle=praShade(col,0.35);
+        ctx.beginPath();ctx.moveTo(L,T);ctx.lineTo(L+d,T-d);ctx.lineTo(R+d,T-d);ctx.lineTo(R,T);ctx.closePath();ctx.fill();
+        ctx.fillStyle=praShade(col,-0.3);
+        ctx.beginPath();ctx.moveTo(R,T);ctx.lineTo(R+d,T-d);ctx.lineTo(R+d,B-d);ctx.lineTo(R,B);ctx.closePath();ctx.fill();
+      });
+    });
+    ctx.restore();
+  }});
+
+  // Count + percentage labels that never overlap: one line, two lines, count only, or hidden (tooltip still works).
   Chart.register({id:'praLabels', afterDatasetsDraw:function(chart){
     var o=chart.options.plugins&&chart.options.plugins.praLabels; if(!o)return;
-    var ctx=chart.ctx, horiz=chart.options.indexAxis==='y', t=chart.config.type;
+    var ctx=chart.ctx, horiz=chart.options.indexAxis==='y', t=chart.config.type, d3=praIs3D();
     ctx.save(); ctx.textBaseline='middle';
     chart.data.datasets.forEach(function(ds,di){
       var meta=chart.getDatasetMeta(di); if(meta.hidden)return;
@@ -681,69 +725,121 @@ if (typeof Chart !== 'undefined') {
         if(o.grouped){c=Number(ds.data[i]||0); if(!c)return; p=sum?c/sum*100:0;}
         else{c=o.counts[i]; if(c==null)return; p=o.pcts?o.pcts[i]:(o.total?c/o.total*100:0);}
         if(t==='doughnut'){
-          if(p<6)return; var pos=el.tooltipPosition(); ctx.fillStyle='#fff'; ctx.textAlign='center';
+          if(!chart.getDataVisibility(i)||p<7)return; var pos=el.tooltipPosition(); ctx.fillStyle='#fff'; ctx.textAlign='center';
+          ctx.shadowColor='rgba(0,0,0,.35)'; ctx.shadowBlur=3;
           ctx.font='bold 11px Arial'; ctx.fillText(p.toFixed(0)+'%',pos.x,pos.y-6);
-          ctx.font='10px Arial'; ctx.fillText(praFmtN(c),pos.x,pos.y+7); return;
+          ctx.font='10px Arial'; ctx.fillText(praFmtN(c),pos.x,pos.y+7); ctx.shadowBlur=0; return;
         }
-        var wide=horiz||(el.width>46);
-        var txt=(o.grouped&&!wide)?praFmtN(c):praFmtN(c)+' ('+p.toFixed(1)+'%)';
+        if(t==='line'){ctx.font='bold 10px Arial';ctx.fillStyle='#172033';ctx.textAlign='center';ctx.fillText(praFmtN(c)+' ('+p.toFixed(1)+'%)',el.x,el.y-12);return;}
+        var dep=d3?praDepthOf(chart,el):0, full=praFmtN(c)+' ('+p.toFixed(1)+'%)', cnt=praFmtN(c), pc=p.toFixed(1)+'%';
         ctx.font='bold 10px Arial'; ctx.fillStyle='#172033';
-        if(horiz){ctx.textAlign='left'; ctx.fillText(txt,el.x+6,el.y);}
-        else{ctx.textAlign='center'; ctx.fillText(txt,el.x,el.y-10);}
+        if(horiz){ctx.textAlign='left'; ctx.fillText(o.grouped?cnt:full,el.x+6+dep,el.y-dep/2); return;}
+        ctx.textAlign='center';
+        var slot=o.grouped?el.width+4:el.width/0.72, x=el.x+dep/2, y=el.y-10-dep;
+        if(!o.grouped&&ctx.measureText(full).width<=slot-4){ctx.fillText(full,x,y);return;}
+        if(!o.grouped&&Math.max(ctx.measureText(cnt).width,ctx.measureText(pc).width)<=slot-2){
+          ctx.fillText(cnt,x,y-12); ctx.font='9px Arial'; ctx.fillStyle='#64748b'; ctx.fillText(pc,x,y); return;}
+        if(ctx.measureText(cnt).width<=slot)ctx.fillText(cnt,x,y);
       });
     });
     ctx.restore();
   }});
 }
 
-function praTrim(l){l=String(l);return l.length>30?l.slice(0,29)+'\u2026':l;}
+function praAlpha(c,a){var m=/^#([0-9a-f]{6})$/i.exec(c);if(!m)return c;var n=parseInt(m[1],16);return 'rgba('+(n>>16)+','+((n>>8)&255)+','+(n&255)+','+a+')';}
+function praGrad(colors,horiz){return function(c){var ch=c.chart,a=ch.chartArea;
+  var col=Array.isArray(colors)?colors[c.dataIndex%colors.length]:colors; if(!a||typeof col!=='string')return col;
+  if(praIs3D())return col;
+  var g=horiz?ch.ctx.createLinearGradient(a.left,0,a.right,0):ch.ctx.createLinearGradient(0,a.bottom,0,a.top);
+  g.addColorStop(0,praAlpha(col,0.45)); g.addColorStop(1,col); return g;};}
+var PRA_TIP={backgroundColor:'rgba(23,32,51,.92)',padding:10,cornerRadius:8,titleFont:{size:11,weight:'bold'},bodyFont:{size:11},displayColors:true,boxPadding:4};
+function praTrim(l,n){n=n||30;l=String(l);return l.length>n?l.slice(0,n-1)+'…':l;}
+// Wrap an axis label onto at most two lines so it is never clipped at the canvas edge.
+function praWrap(l,max){max=max||18;var words=String(l).split(/\s+/),lines=[''];
+  words.forEach(function(w){var cur=lines[lines.length-1];if(cur&&(cur+' '+w).length>max)lines.push(w);else lines[lines.length-1]=cur?cur+' '+w:w;});
+  if(lines.length>2){lines=[lines[0],lines.slice(1).join(' ')];}
+  return lines.map(function(x){return praTrim(x,max+2);});}
+
+// Chooses the chart form from the data: few parts of a whole -> doughnut, too many columns -> horizontal bars,
+// a 1-2 point line -> column chart.
+function praPickType(el,type,labels,options){
+  var n=labels.length, horiz=options.indexAxis==='y';
+  if(options.pie&&n>=2&&n<=options.pie)return {type:'doughnut',horiz:false};
+  if(type==='line'&&n<3)return {type:'bar',horiz:false};
+  if(type==='bar'&&!horiz){
+    var w=(el.parentElement&&el.parentElement.clientWidth)||0;
+    if(w?w/Math.max(n,1)<52:n>5)return {type:'bar',horiz:true};
+  }
+  return {type:type,horiz:horiz};
+}
 
 function praRebuildChart(canvasId,type,labels,values,options){
   options=options||{};
   var el=document.getElementById(canvasId); if(!el||typeof Chart==='undefined')return;
   try{var old=Chart.getChart(el); if(old)old.destroy();}catch(e){}
+  var pick=praPickType(el,type,labels,options); type=pick.type;
   var bg=options.bg||PRA_PAL, counts=options.counts||null, total=options.total||0;
-  var isDo=type==='doughnut', horiz=options.indexAxis==='y';
+  var isDo=type==='doughnut', horiz=pick.horiz, d3=praIs3D();
+  if(isDo&&options.pieValues)values=options.pieValues;
+  if(isDo&&!Array.isArray(bg))bg=PRA_PAL;
   var pctOf=function(i){return options.pcts?options.pcts[i]:(total?counts[i]/total*100:0);};
-  var lab=(isDo&&counts)?labels.map(function(l,i){return praTrim(l)+' \u2013 '+praFmtN(counts[i])+' ('+pctOf(i).toFixed(1)+'%)';}):labels;
-  var catAxis={grid:{display:false},ticks:{color:'#334155',font:{size:9},callback:function(v){return praTrim(this.getLabelForValue(v));}}};
-  var valAxis={beginAtZero:true,grid:{color:'#edf0f4'},ticks:{color:'#64748b',font:{size:9},callback:function(v){return options.percent?Number(v).toFixed(0)+'%':v;}}};
+  var lab=(isDo&&counts)?labels.map(function(l,i){return praTrim(l,20)+' · '+pctOf(i).toFixed(1)+'%';}):labels;
+  var catAxis={grid:{display:false},afterFit:function(sc){if(horiz)sc.width+=8;},ticks:{color:'#334155',font:{size:9},autoSkip:false,maxRotation:horiz?0:40,
+    callback:function(v){return horiz?praWrap(this.getLabelForValue(v),20):praWrap(this.getLabelForValue(v),labels.length<=3?24:14);}}};
+  var valAxis={beginAtZero:true,grid:{color:'#edf0f4'},border:{display:false},ticks:{color:'#64748b',font:{size:9},
+    callback:function(v){return options.percent?Number(v).toFixed(0)+'%':praFmtN(v);}}};
+  if(options.percent&&!isDo){var mx=Math.max.apply(null,values.concat([1]));valAxis.suggestedMax=Math.min(100,mx*1.15);}
   var scales={}; if(!isDo){scales[horiz?'x':'y']=valAxis; scales[horiz?'y':'x']=catAxis;}
+  var lc=options.border||praC(1);
+  var lineFill=function(c){var a=c.chart.chartArea; if(!a)return praAlpha(lc,.14);
+    var g=c.chart.ctx.createLinearGradient(0,a.top,0,a.bottom); g.addColorStop(0,praAlpha(lc,.35)); g.addColorStop(1,praAlpha(lc,0)); return g;};
+  var dep=d3?PRA_DEPTH:0;
   new Chart(el,{type:type,
-    data:{labels:lab,datasets:[{data:values,backgroundColor:bg,borderColor:options.border||(isDo?'#fff':bg),
-      borderWidth:options.borderWidth||(isDo?2:0),borderRadius:isDo?0:(options.radius||6),pointRadius:5,
-      pointBackgroundColor:'#f47b20',tension:0.32,fill:options.fill||false,hoverOffset:isDo?8:0}]},
-    options:{responsive:true,maintainAspectRatio:false,indexAxis:options.indexAxis||'x',cutout:isDo?'55%':undefined,
+    data:{labels:lab,datasets:[{data:values,praColors:bg,
+      backgroundColor:type==='bar'?praGrad(bg,horiz):(type==='line'?lineFill:bg),hoverBackgroundColor:type==='bar'?bg:undefined,
+      borderColor:type==='line'?lc:(isDo?'#fff':bg),
+      borderWidth:type==='line'?3:(isDo?2:0),borderRadius:isDo?0:(d3?0:6),borderSkipped:false,maxBarThickness:44,
+      pointRadius:5,pointHoverRadius:7,pointBackgroundColor:'#fff',pointBorderColor:lc,pointBorderWidth:2,
+      tension:0.35,fill:type==='line',hoverOffset:isDo?10:0}]},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:horiz?'y':'x',cutout:isDo?(options.solidPie?'0%':'55%'):undefined,
       animation:{duration:900,easing:'easeOutQuart'},
-      layout:{padding:isDo?4:{right:horiz?92:12,top:horiz?4:22,left:4,bottom:4}},
+      layout:{padding:isDo?{top:4,left:4,right:4,bottom:4+dep}:{right:horiz?96+dep:12+dep,top:horiz?4+dep:34+dep,left:10,bottom:4}},
       plugins:{
-        legend:{display:!!options.legend,position:'bottom',labels:{color:'#475569',font:{size:9},boxWidth:10}},
-        tooltip:{callbacks:{label:function(c){var i=c.dataIndex;
+        legend:{display:isDo||!!options.legend,position:'bottom',
+          labels:{color:'#475569',font:{size:9},boxWidth:10,usePointStyle:true,pointStyle:'circle',padding:8}},
+        tooltip:Object.assign({},PRA_TIP,{callbacks:{label:function(c){var i=c.dataIndex;
           if(counts){return ' '+labels[i]+': '+praFmtN(counts[i])+' ('+pctOf(i).toFixed(1)+'%)';}
-          return ' '+labels[i]+': '+c.raw+(options.percent?'%':'');}}},
-        praLabels:counts?{counts:counts,total:total,pcts:options.pcts||null}:false
+          return ' '+labels[i]+': '+c.raw+(options.percent?'%':'');}}}),
+        praLabels:counts?{counts:counts,total:total,pcts:isDo?null:(options.pcts||null)}:false
       },
       scales:scales}});
+  return {type:type,horiz:horiz};
 }
 
 function praRebuildGroupedChart(canvasId,labels,datasets,options){
   options=options||{};
   var el=document.getElementById(canvasId); if(!el||typeof Chart==='undefined')return;
   try{var old=Chart.getChart(el); if(old)old.destroy();}catch(e){}
-  var horiz=options.indexAxis==='y';
-  datasets.forEach(function(d,i){d.borderRadius=5; if(!d.backgroundColor)d.backgroundColor=PRA_PAL[i%6];});
+  var horiz=options.indexAxis==='y', d3=praIs3D(), dep=d3?PRA_DEPTH:0;
+  datasets.forEach(function(d,i){var col=d.praColors||d.backgroundColor||PRA_PAL[i%6];
+    d.praColors=col; d.borderRadius=d3?0:5; d.borderSkipped=false; d.maxBarThickness=34;
+    d.hoverBackgroundColor=col; d.backgroundColor=praGrad(col,horiz);});
   var scales={};
-  scales[horiz?'x':'y']={beginAtZero:true,grid:{color:'#edf0f4'},ticks:{color:'#64748b',font:{size:9},precision:0}};
-  scales[horiz?'y':'x']={grid:{display:false},ticks:{color:'#334155',font:{size:9},callback:function(v){return praTrim(this.getLabelForValue(v));}}};
+  scales[horiz?'x':'y']={beginAtZero:true,grid:{color:'#edf0f4'},border:{display:false},ticks:{color:'#64748b',font:{size:9},precision:0}};
+  scales[horiz?'y':'x']={grid:{display:false},afterFit:function(sc){if(horiz)sc.width+=8;},ticks:{color:'#334155',font:{size:9},autoSkip:false,maxRotation:horiz?0:30,
+    callback:function(v){return horiz?praWrap(this.getLabelForValue(v),20):praWrap(this.getLabelForValue(v),14);}}};
   new Chart(el,{type:'bar',data:{labels:labels,datasets:datasets},
-    options:{responsive:true,maintainAspectRatio:false,indexAxis:options.indexAxis||'x',
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:horiz?'y':'x',
       animation:{duration:900,easing:'easeOutQuart'},
-      layout:{padding:{right:horiz?70:8,top:horiz?4:20}},
-      plugins:{legend:{display:!!options.legend,position:'bottom',labels:{color:'#475569',font:{size:9},boxWidth:10}},
-        tooltip:{callbacks:{label:function(c){
+      layout:{padding:{right:(horiz?44:8)+dep,top:(horiz?4:20)+dep}},
+      plugins:{legend:{display:!!options.legend,position:'bottom',
+          labels:{color:'#475569',font:{size:9},boxWidth:10,usePointStyle:true,pointStyle:'circle',
+            generateLabels:function(ch){return ch.data.datasets.map(function(ds,i){var c=Array.isArray(ds.praColors)?ds.praColors[0]:ds.praColors;
+              return {text:praTrim(ds.label,32),fillStyle:c,strokeStyle:c,pointStyle:'circle',hidden:!ch.isDatasetVisible(i),datasetIndex:i};});}}},
+        tooltip:Object.assign({},PRA_TIP,{callbacks:{label:function(c){
           var tot=(c.dataset.data||[]).reduce(function(a,b){return a+Number(b||0);},0);
           var p=tot?c.raw/tot*100:0;
-          return ' '+c.dataset.label+': '+praFmtN(c.raw)+' ('+p.toFixed(1)+'% of this series)';}}},
+          return ' '+c.dataset.label+': '+praFmtN(c.raw)+' ('+p.toFixed(1)+'% of this series)';}}}),
         praLabels:{grouped:true}},
       scales:scales}});
 }
@@ -753,17 +849,22 @@ function praUpdateCharts(){
   var sum=function(a){return a.reduce(function(x,y){return x+Number(y||0);},0);};
   var pcts=function(a){return a.map(function(v){return +(v/N*100).toFixed(2);});};
   praRebuildChart('jobLevel','bar',PRA.job_labels,PRA.job_values,{bg:PRA_PAL,counts:PRA.job_values,total:N});
-  praRebuildChart('jobSplit','bar',PRA.job_split_labels,pcts(PRA.job_split_values),{bg:PRA_PAL,indexAxis:'y',percent:true,counts:PRA.job_split_values,total:N});
-  praRebuildChart('jobFunctions','line',PRA.func_labels,pcts(PRA.func_values),{border:'#f47b20',bg:'rgba(244,123,32,.14)',borderWidth:3,fill:true,percent:true,counts:PRA.func_values,total:N});
+  // Job-level split is a part-of-whole view -> pie, so it differs from the Job Level columns.
+  praRebuildChart('jobSplit','bar',PRA.job_split_labels,pcts(PRA.job_split_values),{bg:PRA_PAL,indexAxis:'y',percent:true,
+    counts:PRA.job_split_values,total:N,pie:6,pieValues:PRA.job_split_values,solidPie:true});
+  praRebuildChart('jobFunctions','line',PRA.func_labels,pcts(PRA.func_values),{bg:PRA_PAL,percent:true,counts:PRA.func_values,total:N});
   praRebuildChart('industries','bar',PRA.industry_labels,pcts(PRA.industry_values),{bg:PRA_PAL,indexAxis:'y',percent:true,counts:PRA.industry_values,total:N});
-  praRebuildChart('employeeSize','bar',PRA.size_labels,pcts(PRA.size_values),{bg:PRA_PAL,percent:true,counts:PRA.size_values,total:N});
+  var sz=praRebuildChart('employeeSize','bar',PRA.size_labels,pcts(PRA.size_values),{bg:PRA_PAL,percent:true,counts:PRA.size_values,total:N});
+  var s4=document.getElementById('s4');
+  if(s4&&sz&&sz.horiz){praRenameSection(s4,'Employee Size — Column','Employee Size');}
   var dt=sum(PRA.device_values)||1;
-  praRebuildChart('devices','bar',PRA.device_labels,PRA.device_values.map(function(v){return +(v/dt*100).toFixed(2);}),{bg:PRA_PAL,indexAxis:'y',percent:true,counts:PRA.device_values,total:dt});
+  praRebuildChart('devices','bar',PRA.device_labels,PRA.device_values.map(function(v){return +(v/dt*100).toFixed(2);}),
+    {bg:[praC(2),praC(1),praC(0),praC(3)],indexAxis:'y',percent:true,counts:PRA.device_values,total:dt,pie:4,pieValues:PRA.device_values});
   praRebuildChart('assetSplit','doughnut',PRA.asset_labels.slice(0,6),PRA.asset_values.slice(0,6),{bg:PRA_PAL,legend:true,counts:PRA.asset_values.slice(0,6),total:N});
 
   var indDs=PRA.industry_labels.slice(0,2).map(function(ind,i){return {label:ind,
     data:PRA.asset_names.map(function(_,a){return PRA.asset_industry_matrix?PRA.asset_industry_matrix[a][i]:0;}),
-    backgroundColor:i===0?'#3f5bd8':'#f47b20'};});
+    backgroundColor:praC(i)};});
   praRebuildGroupedChart('assetIndustry',PRA.asset_names,indDs,{legend:true});
   praRebuildGroupedChart('assetSize',PRA.size_names,PRA.asset_names.map(function(a,i){return {label:a,data:PRA.asset_size_matrix[i]||[],backgroundColor:PRA_PAL[i%6]};}),{legend:true});
   praRebuildGroupedChart('assetJob',PRA.job_names,PRA.asset_names.map(function(a,i){return {label:a,data:PRA.asset_job_matrix[i]||[],backgroundColor:PRA_PAL[i%6]};}),{legend:true,indexAxis:'y'});
@@ -773,9 +874,34 @@ function praUpdateCharts(){
   });
   var rates=[PRA.delivery_rate||0,PRA.open_rate||0,PRA.click_rate||0,PRA.conversion_rate||0,PRA.bounce_rate||0];
   praRebuildChart('statsChart','bar',['Delivered','Open','Clicks','Conversion','Bounce'],rates,
-    {bg:['#12a8b8','#4e7fd8','#f28a3d','#18a878','#7c5ce5'],indexAxis:'y',percent:true,
+    {bg:[praC(2),praC(0),praC(1),praC(3),praC(4)],indexAxis:'y',percent:true,
      counts:[PRA.delivered,PRA.opens,PRA.clicks,PRA.conversion,PRA.bounced],pcts:rates});
+  if(document.getElementById('praGeoChart'))praRenderGeoChart();
 }
+function praRenderGeoChart(){
+  praRebuildChart('praGeoChart','bar',PRA.country_labels,PRA.country_values,{bg:praC(1),indexAxis:'y',counts:PRA.country_values,total:PRA.geo_total||1});
+}
+
+/* 2D / 3D switch (floating, hidden when printing). */
+function praSetMode(m){PRA_MODE=m; try{localStorage.setItem('praChartMode',m);}catch(e){}
+  document.querySelectorAll('#praModeSwitch button').forEach(function(b){b.classList.toggle('on',b.dataset.mode===m);});
+  praUpdateCharts();}
+document.addEventListener('DOMContentLoaded',function(){
+  var st=document.createElement('style');
+  st.textContent='#praModeSwitch{position:fixed;left:18px;bottom:18px;z-index:9999;display:flex;gap:2px;padding:3px;border-radius:999px;'+
+    'background:#fff;box-shadow:0 6px 20px rgba(15,23,42,.18);border:1px solid #e2e8f0;font:600 12px Arial}'+
+    '#praModeSwitch span{padding:6px 8px 6px 10px;color:#64748b}'+
+    '#praModeSwitch button{border:0;background:transparent;padding:6px 12px;border-radius:999px;cursor:pointer;color:#334155;font:inherit}'+
+    '#praModeSwitch button.on{background:linear-gradient(90deg,#f47b20,#f59e0b);color:#fff}'+
+    '@media print{#praModeSwitch{display:none}}'+
+    '.grid>.panel,.grid>div{min-width:0}.chartbox{min-width:0;overflow:hidden}.chartbox canvas{max-width:100%}';
+  document.head.appendChild(st);
+  var sw=document.createElement('div'); sw.id='praModeSwitch';
+  sw.innerHTML='<span>Charts</span><button data-mode="2d">2D</button><button data-mode="3d">3D</button>';
+  sw.addEventListener('click',function(e){var b=e.target.closest('button'); if(b)praSetMode(b.dataset.mode);});
+  document.body.appendChild(sw);
+  sw.querySelectorAll('button').forEach(function(b){b.classList.toggle('on',b.dataset.mode===PRA_MODE);});
+});
 
 /* ---------------- Location slide: Google Maps ---------------- */
 var praGMap=null, praMarkerList={}, praInfoWin=null, praMapRequested=false, praBounds=null;
@@ -789,7 +915,7 @@ function praFallbackMap(note){
     'style="width:100%;height:220px;border:0" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>'+
     '<div style="font-size:10px;color:#64748b;padding:4px 8px">'+praEsc(note||'Free embedded Google map. Run with --google-maps-key to get the interactive bubble map.')+'</div>';
   map.style.height='450px'; map.style.overflow='hidden';
-  praRebuildChart('praGeoChart','bar',PRA.country_labels,PRA.country_values,{bg:'#f47b20',indexAxis:'y',counts:PRA.country_values,total:PRA.geo_total||1});
+  praRenderGeoChart();
 }
 function praMapFail(msg){praGMap=null; praMapRequested=true; praFallbackMap(msg);}
 
@@ -1051,6 +1177,8 @@ def js_dynamic_layer(data: dict[str, Any], df: pd.DataFrame, geo_spec: dict[str,
     data_json = safe_json({
         "campaign_name": data["campaign_name"],
         "report_date": data["report_date"],
+        "period": data.get("period", data["report_date"]),
+        "palette": data.get("palette") or [],
         "start_date": data["start_date"],
         "end_date": data["end_date"],
         "prepared_by": data["prepared_by"],
@@ -1224,7 +1352,7 @@ function praUpdateTopbarAndCover() {{
   const topPrepared = document.querySelector('.meta-block:nth-of-type(2) b');
 
   if (topH1) topH1.textContent = PRA.campaign_name;
-  if (topPeriod) topPeriod.textContent = PRA.report_date;
+  if (topPeriod) topPeriod.textContent = PRA.period;
   if (topPrepared) topPrepared.textContent = PRA.prepared_by;
 
   const coverCampaign = document.querySelector('#s1 .campaign');
@@ -1701,10 +1829,35 @@ def collect_inputs() -> dict[str, Any]:
     }
 
 
-def build_report(template_path: Path, excel_path: Path, inputs: dict[str, Any]) -> Path:
+DATE_FORMATS = {
+    "month_year": "%B %Y",        # September 2026
+    "mon_year": "%b %Y",          # Sep 2026
+    "day_month_year": "%d-%b-%Y",  # 01-Sep-2026
+}
+
+HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+def apply_display_options(data: dict[str, Any], inputs: dict[str, Any]) -> None:
+    """Re-format the dates shown in the report and attach the chosen chart palette."""
+    fmt_code = DATE_FORMATS.get(inputs.get("date_format") or "month_year", "%B %Y")
+    shown = {}
+    for key in ("report_date", "start_date", "end_date"):
+        dt = pd.to_datetime(inputs[key], dayfirst=True, errors="coerce")
+        shown[key] = dt.strftime(fmt_code) if pd.notna(dt) else inputs[key]
+    data.update(shown)
+    data["period"] = (shown["start_date"] if shown["start_date"] == shown["end_date"]
+                      else f'{shown["start_date"]} – {shown["end_date"]}')
+    palette = [c for c in (inputs.get("palette") or []) if HEX_COLOR.match(str(c))]
+    data["palette"] = palette if len(palette) >= 2 else []
+
+
+def build_report(template_path: Path, excel_path: Path, inputs: dict[str, Any],
+                 output_dir: Path | None = None) -> Path:
     template = template_path.read_text(encoding="utf-8")
     df = read_raw_leads(excel_path)
     data = prepare_data(df, inputs)
+    apply_display_options(data, inputs)
 
     geo_spec = build_plotly_geo_spec(df)
     inputs = dict(inputs)
@@ -1733,6 +1886,11 @@ def build_report(template_path: Path, excel_path: Path, inputs: dict[str, Any]) 
 
     output_html = add_summary_slide(output_html, column_summaries(df), len(df))
 
+    if inputs.get("logo_data_uri"):
+        logo = inputs["logo_data_uri"]
+        output_html = re.sub(r'<img src="[^"]*"([^>]*class="brand-logo")',
+                             lambda m: f'<img src="{logo}"{m.group(1)}', output_html)
+
     # Make page title dynamic without changing layout.
     output_html = re.sub(
         r"<title>.*?</title>",
@@ -1743,7 +1901,7 @@ def build_report(template_path: Path, excel_path: Path, inputs: dict[str, Any]) 
     )
 
     output_name = f"PRA_{slugify(data['campaign_name'])}.html"
-    output_path = template_path.parent / output_name
+    output_path = (output_dir or template_path.parent) / output_name
     output_path.write_text(output_html, encoding="utf-8")
 
     print("\n=== REPORT GENERATED ===")
@@ -1777,6 +1935,10 @@ def main() -> None:
     parser.add_argument("--clicks", type=int)
     parser.add_argument("--conversion", type=int)
     parser.add_argument("--prepared-by", default="Quality Department")
+    parser.add_argument("--date-format", choices=sorted(DATE_FORMATS), default="month_year",
+                        help="How dates appear in the report (default: month_year, e.g. September 2026)")
+    parser.add_argument("--palette", default="",
+                        help="Comma-separated chart colours, e.g. '#3f5bd8,#f47b20,#12a8b8'")
     parser.add_argument("--google-maps-key", default=os.environ.get("GOOGLE_MAPS_API_KEY", ""),
                         help="Google Maps JavaScript API key (or set GOOGLE_MAPS_API_KEY)")
 
@@ -1824,6 +1986,8 @@ def main() -> None:
 
     if not inputs.get("maps_key"):
         inputs["maps_key"] = args.google_maps_key
+    inputs.setdefault("date_format", args.date_format)
+    inputs.setdefault("palette", [c.strip() for c in args.palette.split(",") if c.strip()])
 
     build_report(template_path, excel_path, inputs)
 

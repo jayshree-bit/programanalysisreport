@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VAIS | Test Campaing | Program Analysis Report</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<style>
+:root{--navy:#172033;--navy2:#ffffff;--panel:#ffffff;--line:#e6eaf0;--cyan:#12a8b8;--blue:#3f5bd8;--orange:#f47b20;--green:#18a878;--white:#172033;--muted:#64748b;--soft:#f7f9fc;--orange-soft:#fff4ea;--blue-soft:#eef2ff}
+*{box-sizing:border-box} body{margin:0;background:#17212d;color:var(--white);font-family:Arial,Helvetica,sans-serif;overflow-x:hidden}
+body:before{content:"";position:fixed;inset:0;z-index:-2;background:radial-gradient(circle at 15% 20%,rgba(78,127,216,.20),transparent 32%),linear-gradient(135deg,#17212d 0%,#243242 48%,#18222e 100%)}
+body:after{content:"";position:fixed;inset:0;z-index:-1;opacity:.12;background-image:linear-gradient(120deg,transparent 0 45%,rgba(255,255,255,.16) 46%,transparent 47%),linear-gradient(65deg,transparent 0 55%,rgba(255,255,255,.08) 56%,transparent 57%);background-size:420px 420px,520px 520px}
+.app{min-height:100vh}.toolbar{position:sticky;top:0;z-index:50;background:rgba(20,29,39,.97);border-bottom:1px solid var(--line);backdrop-filter:blur(12px)}
+.wrap{max-width:1260px;margin:auto;padding:18px 22px}.brand{display:flex;align-items:center;gap:12px}.brand-mark{font-weight:900;font-size:12px;color:#17212d;background:var(--orange);padding:6px 9px;border-radius:3px;letter-spacing:.08em}.brand h1{font-size:14px;margin:0}.brand p{font-size:11px;color:var(--muted);margin:4px 0 0}.controls{display:flex;gap:7px;align-items:center;flex-wrap:wrap}.btn{background:#263444;color:#dce3ea;border:1px solid rgba(255,255,255,.12);border-radius:5px;padding:8px 11px;font-size:11px;cursor:pointer}.btn:hover{background:#314154}.btn.active{background:var(--orange);color:#18222e;font-weight:800}.deck{max-width:1260px;margin:0 auto;padding:22px}.progress{height:4px;background:#334254;border-radius:10px;overflow:hidden;margin-bottom:16px}.progress>div{height:100%;background:var(--orange);transition:.25s}
+.slide{min-height:690px;border:1px solid var(--line);background:linear-gradient(135deg,rgba(38,52,68,.95),rgba(25,36,49,.96));box-shadow:0 24px 70px rgba(0,0,0,.28);position:relative;overflow:hidden;padding:30px 34px;display:flex;flex-direction:column}.slide:before{content:"";position:absolute;right:-180px;top:-200px;width:560px;height:560px;border-radius:50%;border:1px solid rgba(255,255,255,.08);box-shadow:0 0 0 60px rgba(255,255,255,.015),0 0 0 120px rgba(255,255,255,.01)}
+.hidden{display:none!important}.kicker{font-size:12px;letter-spacing:.20em;color:#f4f6f8;text-transform:uppercase;font-weight:700;margin-bottom:7px}.title{font-size:28px;line-height:1.05;letter-spacing:.01em;margin:0 0 18px;font-weight:800}.subtitle{color:#c3ccd6;font-size:12px;line-height:1.6;max-width:850px}.slideNo{position:absolute;right:26px;bottom:20px;color:#9ca8b5;font-size:11px}.footer{position:absolute;left:28px;bottom:18px;color:#f18b46;font-size:11px;font-weight:700;letter-spacing:.04em}.grid{display:grid;gap:14px}.g4{grid-template-columns:repeat(4,1fr)}.g3{grid-template-columns:repeat(3,1fr)}.g2{grid-template-columns:repeat(2,1fr)}.panel{background:rgba(18,28,40,.72);border:1px solid rgba(255,255,255,.12);padding:16px;border-radius:3px}.metric{min-height:120px;display:flex;flex-direction:column;justify-content:center}.metric .label{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#b8c1cb}.metric .value{font-size:34px;font-weight:900;color:var(--cyan);margin-top:8px}.metric .note{font-size:10px;color:#9ca8b5;margin-top:4px}.section{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#f2f4f6;font-weight:800;margin:8px 0 10px}.chartbox{position:relative;height:285px}.chartbox.small{height:220px}.chartbox.tall{height:350px}.legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;font-size:10px;color:#c1c9d2}.dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px}.table{width:100%;border-collapse:collapse;font-size:10px}.table th,.table td{padding:9px 8px;border-bottom:1px solid rgba(255,255,255,.09);text-align:left}.table th{color:#aeb8c4;text-transform:uppercase;letter-spacing:.08em;font-size:9px}.table td.num{text-align:right;font-variant-numeric:tabular-nums}.callout{border-left:3px solid var(--orange);padding:10px 12px;background:rgba(242,138,61,.08);font-size:11px;color:#dbe1e7;line-height:1.55}.pill{display:inline-block;padding:5px 8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);font-size:9px;border-radius:20px;color:#cbd3dc;margin-right:4px}.toc{max-width:820px;margin:30px auto}.toc-row{display:flex;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.10);font-size:12px}.toc-row span:first-child{color:var(--orange);font-weight:800;width:26px}.toc-row span:last-child{margin-left:auto;color:#c2cad3}.cover{justify-content:center}.cover-left{max-width:620px}.cover .title{font-size:52px;line-height:.95;text-transform:uppercase;letter-spacing:.04em}.cover .campaign{font-size:18px;color:#f5f7fa;font-weight:700;margin:26px 0 10px}.cover .prepared{font-size:12px;color:#b9c3cd;line-height:1.7}.cover-art{position:absolute;right:40px;top:70px;width:360px;height:500px;background:linear-gradient(145deg,rgba(255,255,255,.16),rgba(255,255,255,.02)),repeating-linear-gradient(90deg,rgba(255,255,255,.08) 0 2px,transparent 2px 38px);clip-path:polygon(14% 0,100% 0,84% 100%,0 100%);opacity:.45}.cover-art:after{content:"";position:absolute;left:45%;top:14%;width:7px;height:75%;background:rgba(255,255,255,.4);box-shadow:40px -50px 0 rgba(255,255,255,.12),-55px 110px 0 rgba(255,255,255,.10)}
+#geoMap{height:360px;border:1px solid rgba(255,255,255,.12);background:#1b2a39}.leaflet-container{font-family:Arial,Helvetica,sans-serif;background:#1b2a39}.leaflet-control{filter:brightness(.85)}.geo-list{display:grid;grid-template-columns:1fr 1fr;gap:7px}.geo-item{display:flex;justify-content:space-between;background:rgba(255,255,255,.04);padding:8px;border-left:2px solid var(--orange);font-size:10px}.calc input{width:100%}.calc-value{font-size:24px;font-weight:800;color:var(--cyan)}
+@media(max-width:900px){.g4,.g3{grid-template-columns:1fr 1fr}.cover-art{display:none}.cover .title{font-size:40px}.slide{min-height:720px;padding:24px}.g2{grid-template-columns:1fr}}
+@media(max-width:600px){.g4,.g3,.g2{grid-template-columns:1fr}.toolbar .wrap{align-items:flex-start}.slide{min-height:820px}.chartbox{height:260px}}
+
+/* VAIS / Valasys AI visual refresh — clean orange-and-white SaaS dashboard language */
+body{background:#f6f8fb;color:var(--white);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
+body:before{background:radial-gradient(circle at 8% 5%,rgba(244,123,32,.10),transparent 26%),radial-gradient(circle at 92% 15%,rgba(63,91,216,.08),transparent 28%),linear-gradient(180deg,#fbfcfe 0%,#f5f7fa 100%)}
+body:after{opacity:.035;background-image:radial-gradient(circle at 20% 20%,#f47b20 0 1px,transparent 1px),radial-gradient(circle at 80% 70%,#3f5bd8 0 1px,transparent 1px);background-size:28px 28px,36px 36px}
+.toolbar{background:rgba(255,255,255,.96);border-bottom:1px solid #e7ebf0;box-shadow:0 4px 18px rgba(23,32,51,.05)}
+.brand-mark{color:#fff;background:linear-gradient(135deg,#f47b20,#ff9a3d);border-radius:7px;padding:7px 10px;box-shadow:0 4px 12px rgba(244,123,32,.20)}
+.brand h1{color:#172033;font-size:15px}.brand p{color:#718096}
+.btn{background:#fff;color:#475569;border:1px solid #dfe5ec;border-radius:8px;padding:9px 12px;box-shadow:0 2px 6px rgba(23,32,51,.03)}
+.btn:hover{background:#fff7f0;border-color:#f7b27e;color:#c75b08}.btn.active{background:linear-gradient(135deg,#f47b20,#ff9640);color:#fff;border-color:#f47b20;box-shadow:0 5px 14px rgba(244,123,32,.22)}
+.deck{max-width:1320px;padding:26px 28px}.progress{height:5px;background:#e9edf3;margin-bottom:20px}.progress>div{background:linear-gradient(90deg,#f47b20,#ff9d48,#3f5bd8)}
+.slide{min-height:720px;border:1px solid #e4e8ef;background:linear-gradient(145deg,#ffffff 0%,#fbfcfe 72%,#fff8f2 100%);box-shadow:0 18px 55px rgba(23,32,51,.10);padding:38px 44px;border-radius:18px}
+.slide:before{right:-220px;top:-240px;border-color:rgba(244,123,32,.10);box-shadow:0 0 0 60px rgba(244,123,32,.025),0 0 0 120px rgba(63,91,216,.018)}
+.slide:after{content:"";position:absolute;left:0;top:0;width:6px;height:100%;background:linear-gradient(180deg,#f47b20,#ffb16d 55%,#3f5bd8);opacity:.9}
+.kicker{font-size:13px;color:#f47b20;letter-spacing:.16em;margin-bottom:9px}.title{font-size:34px;line-height:1.08;color:#172033;margin-bottom:22px}.subtitle{color:#5d6b7e;font-size:14px;line-height:1.65}
+.panel{background:rgba(255,255,255,.94);border:1px solid #e5e9ef;padding:19px;border-radius:12px;box-shadow:0 8px 22px rgba(23,32,51,.045)}
+.metric{min-height:150px}.metric .label{font-size:11px;color:#64748b;letter-spacing:.10em}.metric .value{font-size:42px;color:#f47b20;margin-top:10px;line-height:1}.metric .note{font-size:11px;color:#7a8798;margin-top:7px}
+.section{font-size:13px;color:#26344a;letter-spacing:.08em;margin:5px 0 12px;display:flex;align-items:center;gap:8px}.section .section-icon{width:27px;height:27px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;background:#fff4ea;color:#f47b20;font-size:14px;box-shadow:inset 0 0 0 1px #ffe0c7}
+.chartbox{height:330px}.chartbox.small{height:265px}.chartbox.tall{height:405px}
+.table{font-size:12px}.table th,.table td{padding:12px 10px;border-bottom:1px solid #edf0f4}.table th{color:#64748b;font-size:10px}.table td{color:#334155}.table tr:last-child td{border-bottom:0}.callout{border-left:4px solid #f47b20;padding:13px 15px;background:#fff7f0;font-size:13px;color:#3b4758;line-height:1.6;border-radius:0 10px 10px 0}
+.pill{padding:7px 10px;border:1px solid #e5e9ef;background:#f8fafc;color:#475569;margin:0 5px 5px 0}.toc{max-width:900px;margin:42px auto}.toc-row{padding:15px 0;border-bottom:1px solid #e8edf2;font-size:14px}.toc-row span:first-child{color:#f47b20}.toc-row span:last-child{color:#64748b}
+.footer{color:#f47b20;font-size:11px}.slideNo{color:#94a3b8}
+.cover{background:linear-gradient(135deg,#fff 0%,#fff 58%,#fff6ee 100%)}.cover .title{font-size:64px;color:#172033}.cover .campaign{font-size:20px;color:#25334a}.cover .prepared{font-size:13px;color:#64748b}.cover-art{right:50px;top:70px;width:400px;height:520px;background:linear-gradient(145deg,rgba(244,123,32,.16),rgba(63,91,216,.08)),repeating-linear-gradient(90deg,rgba(244,123,32,.10) 0 2px,transparent 2px 38px);opacity:.75;border-radius:22px;clip-path:polygon(12% 0,100% 0,88% 100%,0 100%)}
+.cover-art:after{background:rgba(244,123,32,.45);box-shadow:40px -50px 0 rgba(63,91,216,.16),-55px 110px 0 rgba(244,123,32,.12)}
+#geoMap{height:430px;border:1px solid #e1e6ed;background:#eef2f7;border-radius:10px}.leaflet-container{background:#eef2f7}.leaflet-control{filter:none}.geo-item{background:#f8fafc;padding:10px;border-left:3px solid #f47b20;font-size:12px;color:#334155}.calc-value{font-size:30px;color:#f47b20}
+@media(max-width:900px){.slide{padding:30px}.title{font-size:30px}.cover .title{font-size:48px}.chartbox{height:300px}.chartbox.small{height:250px}.chartbox.tall{height:350px}}
+@media(max-width:600px){.slide{min-height:900px;padding:24px}.title{font-size:27px}.chartbox,.chartbox.small,.chartbox.tall{height:280px}.metric .value{font-size:36px}}
+
+
+/* V4 — Valasys Media AI dashboard layout */
+html,body{min-height:100%;background:#f4f6f9!important}
+body{color:#172033!important;overflow-x:hidden}
+body:before,body:after{display:none!important}
+.toolbar{position:sticky;top:0;z-index:100;background:rgba(255,255,255,.98)!important;border-bottom:1px solid #e2e7ee!important;box-shadow:0 3px 16px rgba(22,34,51,.06)!important}
+.topbar{height:88px;max-width:1500px;margin:auto;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+.brand-large{gap:16px;min-width:0}.brand-logo{width:390px;height:auto;max-height:66px;object-fit:contain;object-position:left center}.brand-divider{width:1px;height:52px;background:#dfe4ea}.brand-copy{min-width:260px}.brand-copy h1{margin:0;color:#172033;font-size:22px;line-height:1.15;font-weight:750;letter-spacing:-.02em}.brand-copy p{margin:6px 0 0;color:#667085;font-size:14px}
+.report-meta{display:flex;align-items:center;gap:14px;flex-shrink:0} .slide-indicator{font-size:11px;color:#667085;font-weight:800;letter-spacing:.04em;padding:0 6px;white-space:nowrap}.meta-block{display:flex;gap:9px;align-items:center;padding-right:12px;border-right:1px solid #e5e9ef}.meta-icon{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:#fff3e8;color:#f45132;font-weight:900;font-size:16px}.meta-block b{display:block;color:#344054;font-size:12px}.meta-block small{display:block;color:#98a2b3;font-size:9px;margin-top:2px}.icon-btn,.nav-btn{border:1px solid #dfe5ec;background:#fff;color:#344054;border-radius:10px;cursor:pointer;box-shadow:0 2px 7px rgba(16,24,40,.04)}.icon-btn{width:42px;height:38px;font-size:18px}.nav-btn{width:42px;height:38px;font-size:28px;line-height:1}.icon-btn:hover,.nav-btn:hover{border-color:#f47b20;color:#f47b20;background:#fffaf6}
+.workspace{display:block;min-height:calc(100vh - 88px)}.sidebar{display:none!important;background:#fff;border-right:1px solid #e3e8ef;padding:18px 12px 14px;display:flex;flex-direction:column;position:sticky;top:88px;height:calc(100vh - 88px);overflow:auto}.side-head{display:flex;justify-content:space-between;align-items:center;padding:4px 10px 13px;color:#98a2b3;font-size:9px;font-weight:800;letter-spacing:.12em}.side-head span:last-child{color:#f45132;letter-spacing:0}.slide-nav{display:flex;flex-direction:column;gap:4px}.slide-nav-item{width:100%;border:0;background:transparent;text-align:left;display:flex;align-items:center;gap:11px;padding:8px;border-radius:10px;cursor:pointer;color:#344054;transition:.15s}.slide-nav-item:hover{background:#fff7f1}.slide-nav-item.active{background:#fff4eb;color:#f45132;box-shadow:inset 3px 0 #f45132}.slide-nav-item b{display:block;font-size:11px;line-height:1.25;font-weight:700}.slide-nav-item small{display:block;font-size:8px;color:#98a2b3;margin-top:3px}.slide-nav-item.active small{color:#c96a32}.thumb{width:64px;height:40px;flex:0 0 64px;border:1px solid #dfe5ec;border-radius:6px;background:linear-gradient(135deg,#f8fafc,#eef2f6);display:flex;align-items:center;justify-content:center;color:#667085;font-size:12px;font-weight:800;box-shadow:0 2px 5px rgba(16,24,40,.04);position:relative;overflow:hidden}.thumb:before{content:"";position:absolute;left:7px;right:7px;bottom:6px;height:3px;background:#f47b20;border-radius:4px;box-shadow:12px -7px 0 #3f5bd8,24px -3px 0 #d6dce5}.slide-nav-item.active .thumb{border-color:#f5b88a;background:#fff8f2;color:#f45132}.side-foot{margin-top:auto;padding:15px 10px 3px;border-top:1px solid #eef1f5;display:flex;align-items:center;gap:9px;color:#98a2b3;font-size:9px}.orange-line{width:32px;height:3px;background:#f45132;border-radius:5px}
+.deck{max-width:none;width:100%;padding:24px 28px 34px}.progress{height:4px;background:#e9edf3;margin-bottom:16px}.progress>div{background:linear-gradient(90deg,#f45132,#ff8c52,#3f5bd8)}.slide{width:100%;max-width:1180px;margin:0 auto;min-height:calc(100vh - 145px);border:1px solid #e1e6ed;background:linear-gradient(145deg,#fff 0%,#fbfcfe 76%,#fff8f2 100%);box-shadow:0 16px 48px rgba(16,24,40,.09);padding:30px 36px;border-radius:14px}.slide:before{right:-180px;top:-210px;border-color:rgba(244,123,32,.09);box-shadow:0 0 0 55px rgba(244,123,32,.025),0 0 0 110px rgba(63,91,216,.018)}.slide:after{width:4px;background:linear-gradient(180deg,#f45132,#ff9b62 55%,#3f5bd8)}.kicker{font-size:11px;color:#f45132;letter-spacing:.14em;margin-bottom:7px}.title{font-size:31px;line-height:1.08;color:#172033;margin-bottom:16px}.subtitle{color:#667085;font-size:13px}.panel{background:rgba(255,255,255,.97);border:1px solid #e4e9ef;padding:16px;border-radius:11px;box-shadow:0 7px 20px rgba(16,24,40,.045)}.metric{min-height:145px}.metric .label{font-size:10px;color:#667085;letter-spacing:.09em}.metric .value{font-size:40px;color:#f45132;margin-top:9px}.metric .note{font-size:10px;color:#98a2b3}.section{font-size:11px;color:#26344a;letter-spacing:.07em;margin:3px 0 9px}.section .section-icon{width:25px;height:25px;background:#fff1e9;color:#f45132;border-radius:7px;box-shadow:inset 0 0 0 1px #ffd7bf}.chartbox{height:300px}.chartbox.small{height:245px}.chartbox.tall{height:380px}.table{font-size:11px}.table th,.table td{padding:10px 8px}.table th{font-size:9px}.callout{font-size:12px}.cover .title{font-size:58px}.cover .campaign{font-size:18px}.cover-art{right:45px;top:60px;width:410px;height:510px}.footer{font-size:10px}.slideNo{font-size:10px;background:#f45132;color:#fff!important;border-radius:8px;padding:7px 9px;bottom:16px;right:18px}.cover .footer{color:#f45132}
+@media(max-width:1050px){.workspace{grid-template-columns:215px 1fr}.brand-logo{width:290px}.brand-copy h1{font-size:17px}.report-meta .meta-block{display:none}.slide{padding:26px 28px}.title{font-size:28px}}
+@media(max-width:760px){.workspace{display:block}.sidebar{position:sticky;top:88px;height:auto;z-index:40;padding:8px;overflow-x:auto;overflow-y:hidden;border-right:0;border-bottom:1px solid #e3e8ef}.side-head{display:none}.slide-nav{flex-direction:row;min-width:max-content}.slide-nav-item{width:auto;padding:6px}.slide-nav-item span:last-child{display:none}.thumb{width:54px;flex-basis:54px;height:34px}.side-foot{display:none}.topbar{height:auto;min-height:78px;padding:10px 14px}.brand-divider,.brand-copy{display:none}.brand-logo{width:250px}.report-meta{gap:5px}.icon-btn{display:none}.deck{padding:14px}.slide{min-height:850px;padding:22px}.cover .title{font-size:46px}.chartbox,.chartbox.small,.chartbox.tall{height:270px}.g4,.g3,.g2{grid-template-columns:1fr}.report-meta .nav-btn{width:34px}}
+
+/* v6 layout refinements */
+.chartbox.column{height:300px}
+.asset-split-layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:16px;align-items:stretch}
+.asset-hero{display:flex;flex-direction:column;justify-content:center;min-height:320px}
+.asset-hero .value{font-size:48px}
+.asset-chart-panel{min-width:0}
+.legend.left-legend{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:12px;margin:0;padding:0 4px 0 0}
+.legend.left-legend .legend-item{display:flex;align-items:center;gap:8px;color:#475467;font-size:11px;font-weight:700}
+.legend.left-legend .dot{width:10px;height:10px}
+.table-center th,.table-center td{text-align:center!important}
+.table-center th:first-child,.table-center td:first-child{text-align:left!important}
+.stats-row{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.stats-card{display:flex;align-items:center;gap:9px;padding:13px 12px!important;min-height:112px!important}
+.stats-card .stat-icon{width:28px;height:28px;border-radius:8px;background:#fff1e9;color:#f45132;display:inline-flex;align-items:center;justify-content:center;font-weight:900;flex:0 0 28px}
+.stats-card .label{margin:0;color:#667085;font-size:9px;letter-spacing:.07em}
+.stats-card .value{font-size:30px!important;margin-top:4px!important}
+.stats-card .note{font-size:10px}
+.slide11-chart{height:280px}
+.exec-readout{margin-top:12px}
+.exec-readout .callout{font-size:12px}
+.observation-list{color:#344054!important;font-size:13px!important;line-height:1.9!important}
+.observation-list li{margin-bottom:5px}
+.observation-list li::marker{color:#f45132}
+@media(max-width:1050px){.stats-row{grid-template-columns:repeat(3,minmax(0,1fr));}.asset-split-layout{grid-template-columns:180px minmax(0,1fr)}}
+@media(max-width:760px){.stats-row{grid-template-columns:repeat(2,minmax(0,1fr));}.asset-split-layout{grid-template-columns:1fr}.legend.left-legend{flex-direction:row;flex-wrap:wrap;justify-content:flex-start}.asset-hero{min-height:160px}.slide11-chart{height:240px}}
+
+/* v7 refinements */
+.audience-stat{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0}
+.audience-stat .pill{margin:0 0 8px}
+.audience-stat b{font-size:28px;color:#172033;line-height:1.05}
+.audience-stat small{display:block;color:#172033!important;font-size:13px!important;font-weight:800;margin-top:6px}
+.slide4-grid{grid-template-columns:.82fr 1.75fr 1.18fr 1.18fr}
+.slide4-grid .chartbox{height:330px}
+.asset-split-layout{grid-template-columns:175px 220px minmax(0,1fr)}
+.asset-hero{min-height:320px}
+.asset-legend-panel{display:flex;flex-direction:column;justify-content:center;min-height:320px}
+.legend.left-legend{margin:0!important;padding:0!important}
+.table-center th:not(:first-child),.table-center td:not(:first-child){text-align:center!important}
+.stats-card{flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:8px!important;text-align:center!important;padding:14px 10px!important}
+.stats-card .stat-icon{width:34px;height:34px;flex:0 0 34px;border-radius:9px;font-size:17px}
+.stats-copy{display:flex;flex-direction:column;align-items:center}
+.stats-card .label{font-size:13px!important;color:#344054!important;letter-spacing:.08em!important;font-weight:800!important}
+.stats-card .value{font-size:34px!important;line-height:1!important;margin-top:5px!important;color:#f45132!important}
+.stats-card .note{font-size:11px!important;margin-top:4px!important;color:#64748b!important}
+.stats-card:before,.stats-card:after,.stats-card .label:before,.stats-card .label:after{content:none!important}
+@media(max-width:1050px){.slide4-grid{grid-template-columns:1fr 1.6fr 1fr 1fr}.asset-split-layout{grid-template-columns:170px 190px minmax(0,1fr)}}
+@media(max-width:760px){.slide4-grid{grid-template-columns:1fr}.asset-split-layout{grid-template-columns:1fr}.asset-legend-panel{min-height:150px}.stats-card{min-height:135px!important}}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="toolbar">
+<div class="topbar">
+<div class="brand brand-large"><img src="data:image/webp;base64,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" alt="Valasys Media" class="brand-logo"><div class="brand-divider"></div><div class="brand-copy"><h1>Merit Mile Temenos - NA - HQL Q2’26</h1><p>Program Analysis Report</p></div></div>
+<div class="report-meta"><div class="meta-block"><span class="meta-icon">▣</span><div><b>July 2026</b><small>Campaign Period</small></div></div><div class="meta-block"><span class="meta-icon">◉</span><div><b>Quality Department</b><small>Prepared by</small></div></div><span id="topIndicator" class="slide-indicator">1 / 12</span><button class="icon-btn" onclick="toggleFullscreen()" title="Full screen">⛶</button><button class="nav-btn" onclick="prevSlide()">‹</button><button class="nav-btn" onclick="nextSlide()">›</button></div>
+</div>
+</header>
+<div class="workspace">
+<!-- Report Sections hidden for a cleaner executive presentation view -->
+<aside class="sidebar"><div class="side-head"><span>REPORT SECTIONS</span><span id="indicator">1 / 12</span></div><nav class="slide-nav">
+<button class="slide-nav-item active" onclick="goToSlide(0)"><span class="thumb">01</span><span><b>Cover</b><small>Program overview</small></span></button>
+<button class="slide-nav-item" onclick="goToSlide(1)"><span class="thumb">02</span><span><b>Table of Contents</b><small>Report structure</small></span></button>
+<button class="slide-nav-item" onclick="goToSlide(2)"><span class="thumb">03</span><span><b>Campaign Dashboard</b><small>Audience & job level</small></span></button>
+<button class="slide-nav-item" onclick="goToSlide(3)"><span class="thumb">04</span><span><b>Industry, Devices & Size</b><small>Audience profile</small></span></button>
+<button class="slide-nav-item" onclick="goToSlide(4)"><span class="thumb">05</span><span><b>Location Analysis</b><small>North America map</small></span></button>
+<button class="slide-nav-item" onclick="goToSlide(5)"><span class="thumb">06</span><span><b>Asset Dashboard</b><small>Asset mix</small></span></button>
+<button class="slide-nav-item" onclick="goToSlide(6)"><span class="thumb">07</span><span><b>Asset Engagement</b><small>Size & job level</small></span></button>
+<button class="slide-nav-item" onclick="goToSlide(7)"><span class="thumb">08</span><span><b>Asset-wise Open Split</b><small>Open performance</small></span></button>
+<button class="slide-nav-item" onclick="goToSlide(8)"><span class="thumb">09</span><span><b>Asset-wise Click Split</b><small>Click performance</small></span></button>
+<button class="slide-nav-item" onclick="goToSlide(9)"><span class="thumb">10</span><span><b>Asset-wise Conversion Split</b><small>Conversion performance</small></span></button>
+<button class="slide-nav-item" onclick="goToSlide(10)"><span class="thumb">11</span><span><b>Campaign Statistics</b><small>Funnel & KPIs</small></span></button>
+<button class="slide-nav-item" onclick="goToSlide(11)"><span class="thumb">12</span><span><b>Observations & Recommendations</b><small>Key takeaways</small></span></button><button class="slide-nav-item" onclick="goToSlide(12)"><span class="thumb">13</span><span><b>Lead Data Summary</b><small>All fields</small></span></button>
+</nav><div class="side-foot"><span class="orange-line"></span><span>www.valasys.ai</span></div></aside>
+<main class="deck">
+<div id="deckView">
+<div class="progress"><div id="progress" style="width:8.33%"></div></div>
+
+<section class="slide cover" id="s1"><div class="cover-art"></div><div class="cover-left"><div class="kicker">Program Analysis Report</div><h2 class="title">Program<br>Analysis<br>Report</h2><div class="campaign">Merit Mile Temenos - NA - HQL Q2’26</div><div class="prepared">Prepared by: Quality Department<br>July 2026</div></div><div class="footer">VALASYS MEDIA™</div><div class="slideNo">1</div></section>
+
+<section class="slide hidden" id="s2"><div class="kicker">Contents</div><h2 class="title">Table of Contents</h2><div class="toc">
+<div class="toc-row"><span>01</span><b>Campaign Dashboard</b><span>3–5</span></div><div class="toc-row"><span>02</span><b>Asset Dashboard</b><span>6–7</span></div><div class="toc-row"><span>03</span><b>Asset-wise Open Split</b><span>8</span></div><div class="toc-row"><span>04</span><b>Asset-wise Click Split</b><span>9</span></div><div class="toc-row"><span>05</span><b>Asset-wise Conversion Split</b><span>10</span></div><div class="toc-row"><span>06</span><b>Campaign Statistics</b><span>11</span></div><div class="toc-row"><span>07</span><b>Observations & Recommendations</b><span>12</span></div><div class="toc-row"><span>08</span><b>Lead Data Summary</b><span>13</span></div>
+</div><div class="footer">VALASYS MEDIA™</div><div class="slideNo">2</div></section>
+
+<section class="slide hidden" id="s3"><div class="kicker">Campaign Dashboard</div><h2 class="title">Audience Profile & Job Level</h2><div class="grid g4">
+<div class="panel metric"><div class="label">Leads Generated</div><div class="value">60</div><div class="note">Campaign lead volume</div></div>
+<div class="panel"><div class="section">Job Level</div><div class="chartbox small"><canvas id="jobLevel"></canvas></div></div>
+<div class="panel"><div class="section">Job Level Split</div><div class="chartbox small"><canvas id="jobSplit"></canvas></div></div>
+<div class="panel"><div class="section">Job Functions — Trend</div><div class="chartbox small"><canvas id="jobFunctions"></canvas></div></div>
+</div><div class="grid g2" style="margin-top:14px"><div class="panel"><div class="section">Senior Audience Mix</div><div class="grid g3"><div class="audience-stat"><span class="pill">C-Level</span><b>42</b><small>70.0%</small></div><div class="audience-stat"><span class="pill">Director</span><b>14</b><small>23.3%</small></div><div class="audience-stat"><span class="pill">Vice President</span><b>4</b><small>6.7%</small></div></div></div><div class="callout">The campaign generated 60 leads, with C-Level contacts representing the largest job-level segment at 70.0%.</div></div><div class="footer">VALASYS MEDIA™</div><div class="slideNo">3</div></section>
+
+<section class="slide hidden" id="s4"><div class="kicker">Campaign Dashboard</div><h2 class="title">Industry, Company Size & Device Profile</h2><div class="grid g4 slide4-grid">
+<div class="panel metric"><div class="label">Unique Industries</div><div class="value">2</div><div class="note">Financial Services • Banking</div></div>
+<div class="panel"><div class="section">Top Industries</div><div class="chartbox"><canvas id="industries"></canvas></div></div>
+<div class="panel"><div class="section">Employee Size — Column</div><div class="chartbox column"><canvas id="employeeSize"></canvas></div></div>
+<div class="panel"><div class="section">Devices</div><div class="chartbox"><canvas id="devices"></canvas></div></div>
+</div><div class="grid g2" style="margin-top:14px"><div class="panel"><div class="section">Industry Split</div><div class="grid g2"><div><div style="font-size:30px;color:var(--blue);font-weight:900">56.7%</div><div style="font-size:10px;color:#64748b">Financial Services</div></div><div><div style="font-size:30px;color:var(--orange);font-weight:900">43.3%</div><div style="font-size:10px;color:#64748b">Banking</div></div></div></div><div class="panel"><div class="section">Device Mix</div><div style="font-size:13px"><b style="color:var(--cyan)">80.2%</b> Desktops/Laptops &nbsp; <b style="color:var(--orange)">19.8%</b> Mobiles/Tablets</div></div></div><div class="footer">VALASYS MEDIA™</div><div class="slideNo">4</div></section>
+
+<section class="slide hidden" id="s5"><div class="kicker">Campaign Dashboard</div><h2 class="title">Location Split — North America</h2><div class="grid g2" style="grid-template-columns:1.7fr 1fr"><div class="panel"><div id="geoMap"></div></div><div class="panel"><div class="section">Geographic Reach</div><div class="metric" style="min-height:90px"><div class="label">Unique Geo Locations</div><div class="value">20</div></div><div class="geo-list"><div class="geo-item"><span>New York</span><b>20.0%</b></div><div class="geo-item"><span>Ohio</span><b>16.7%</b></div><div class="geo-item"><span>Arizona</span><b>8.3%</b></div><div class="geo-item"><span>Illinois</span><b>8.3%</b></div><div class="geo-item"><span>Tennessee</span><b>5.0%</b></div><div class="geo-item"><span>Other locations</span><b>41.7%</b></div></div><div class="callout" style="margin-top:12px">The five priority states above account for 58.3% of total engagement, matching the original report's recommendation.</div></div></div><div class="footer">VALASYS MEDIA™</div><div class="slideNo">5</div></section>
+
+<section class="slide hidden" id="s6"><div class="kicker">Asset Dashboard</div><h2 class="title">Asset Mix & Industry Engagement</h2><div class="grid g3"><div class="panel metric"><div class="label">Unique Assets</div><div class="value">2</div><div class="note">Two promoted assets</div></div><div class="panel"><div class="section">Asset Split</div><div class="chartbox"><canvas id="assetSplit"></canvas></div></div><div class="panel"><div class="section">Asset Engagement by Top Industries</div><div class="chartbox"><canvas id="assetIndustry"></canvas></div></div></div><div class="panel" style="margin-top:14px"><table class="table table-center"><thead><tr><th>Asset</th><th>Financial Services</th><th>Banking</th><th>Total</th></tr></thead><tbody><tr><td>How North American Banks Modernize Their Core</td><td class="num">24</td><td class="num">15</td><td class="num">39</td></tr><tr><td>IDC MarketScape</td><td class="num">10</td><td class="num">11</td><td class="num">21</td></tr></tbody></table></div><div class="footer">VALASYS MEDIA™</div><div class="slideNo">6</div></section>
+
+<section class="slide hidden" id="s7"><div class="kicker">Asset Dashboard</div><h2 class="title">Asset Engagement by Employee Size & Job Level</h2><div class="grid g2"><div class="panel"><div class="section">Employee Size — Column</div><div class="chartbox tall"><canvas id="assetSize"></canvas></div></div><div class="panel"><div class="section">Job Level</div><div class="chartbox tall"><canvas id="assetJob"></canvas></div></div></div><div class="callout" style="margin-top:14px">The original report shows stronger asset engagement from the 1001–5000 employee segment, while the asset engagement is concentrated across C-Level and Director profiles.</div><div class="footer">VALASYS MEDIA™</div><div class="slideNo">7</div></section>
+
+<section class="slide hidden" id="s8"><div class="kicker">Asset-wise Open Split</div><h2 class="title">Open Engagement by Asset</h2><div class="asset-split-layout"><div class="panel metric asset-hero"><div class="section">Total Open Count</div><div class="value">688</div><div class="note">445 + 243 opens</div></div><div class="panel asset-legend-panel"><div class="section">Legend</div><div class="legend left-legend"><div class="legend-item"><span class="dot" style="background:#3f5bd8"></span>How North American Banks Modernize Their Core</div><div class="legend-item"><span class="dot" style="background:#f47b20"></span>IDC MarketScape</div></div></div><div class="panel asset-chart-panel"><div class="section">Open Engagement by Asset</div><div class="chartbox tall"><canvas id="openChart"></canvas></div></div></div><div class="panel" style="margin-top:14px"><table class="table table-center"><thead><tr><th>Asset</th><th>Opens</th><th>Open Share</th></tr></thead><tbody><tr><td>How North American Banks Modernize Their Core</td><td>445</td><td>64.68%</td></tr><tr><td>IDC MarketScape</td><td>243</td><td>35.32%</td></tr></tbody></table></div><div class="footer">VALASYS MEDIA™</div><div class="slideNo">8</div></section>
+
+<section class="slide hidden" id="s9"><div class="kicker">Asset-wise Click Split</div><h2 class="title">Click Engagement by Asset</h2><div class="asset-split-layout"><div class="panel metric asset-hero"><div class="section">Total Click Count</div><div class="value">247</div><div class="note">160 + 87 across two assets</div></div><div class="panel asset-legend-panel"><div class="section">Legend</div><div class="legend left-legend"><div class="legend-item"><span class="dot" style="background:#3f5bd8"></span>How North American Banks Modernize Their Core</div><div class="legend-item"><span class="dot" style="background:#f47b20"></span>IDC MarketScape</div></div></div><div class="panel asset-chart-panel"><div class="section">Click Engagement by Asset</div><div class="chartbox tall"><canvas id="clickChart"></canvas></div></div></div><div class="panel" style="margin-top:14px"><table class="table table-center"><thead><tr><th>Asset</th><th>Clicks</th><th>Click Share</th></tr></thead><tbody><tr><td>How North American Banks Modernize Their Core</td><td>160</td><td>64.78%</td></tr><tr><td>IDC MarketScape</td><td>87</td><td>35.22%</td></tr></tbody></table></div><div class="footer">VALASYS MEDIA™</div><div class="slideNo">9</div></section>
+
+<section class="slide hidden" id="s10"><div class="kicker">Asset-wise Conversion Split</div><h2 class="title">Conversion Engagement by Asset</h2><div class="asset-split-layout"><div class="panel metric asset-hero"><div class="section">Total Conversion Count</div><div class="value">68</div><div class="note">44 + 24 across two assets</div></div><div class="panel asset-legend-panel"><div class="section">Legend</div><div class="legend left-legend"><div class="legend-item"><span class="dot" style="background:#3f5bd8"></span>How North American Banks Modernize Their Core</div><div class="legend-item"><span class="dot" style="background:#f47b20"></span>IDC MarketScape</div></div></div><div class="panel asset-chart-panel"><div class="section">Conversion Engagement by Asset</div><div class="chartbox tall"><canvas id="conversionChart"></canvas></div></div></div><div class="panel" style="margin-top:14px"><table class="table table-center"><thead><tr><th>Asset</th><th>Conversions</th><th>Conversion Share</th></tr></thead><tbody><tr><td>How North American Banks Modernize Their Core</td><td>44</td><td>64.71%</td></tr><tr><td>IDC MarketScape</td><td>24</td><td>35.29%</td></tr></tbody></table></div><div class="footer">VALASYS MEDIA™</div><div class="slideNo">10</div></section>
+
+<section class="slide hidden" id="s11"><div class="kicker">Campaign Statistics</div><h2 class="title">Campaign Funnel & Performance</h2><div class="stats-row">
+<div class="panel metric stats-card"><span class="stat-icon">➤</span><div class="stats-copy"><div class="label">Sent</div><div class="value">2,749</div></div></div>
+<div class="panel metric stats-card"><span class="stat-icon">✓</span><div class="stats-copy"><div class="label">Delivered</div><div class="value">2,701</div><div class="note">98.3%</div></div></div>
+<div class="panel metric stats-card"><span class="stat-icon">◔</span><div class="stats-copy"><div class="label">Opens</div><div class="value">688</div><div class="note">25.5%</div></div></div>
+<div class="panel metric stats-card"><span class="stat-icon">⌁</span><div class="stats-copy"><div class="label">Clicks</div><div class="value">247</div><div class="note">9.1%</div></div></div>
+<div class="panel metric stats-card"><span class="stat-icon">◆</span><div class="stats-copy"><div class="label">Conversion</div><div class="value">68</div><div class="note">2.5%</div></div></div>
+<div class="panel metric stats-card"><span class="stat-icon">⊘</span><div class="stats-copy"><div class="label">Bounced</div><div class="value">48</div><div class="note">1.7%</div></div></div>
+</div><div class="panel"><div class="section">Statistics Split</div><div class="chartbox slide11-chart"><canvas id="statsChart"></canvas></div></div><div class="panel exec-readout"><div class="section">Executive Readout</div><div class="callout">Delivery remained high at 98.3%, while the campaign generated 688 opens, 247 clicks and 68 conversions from 2,749 sends.</div></div><div class="footer">VALASYS MEDIA™</div><div class="slideNo">11</div></section>
+
+<section class="slide hidden" id="s12"><div class="kicker">Observations & Recommendations</div><h2 class="title">What the Campaign Data Tells Us</h2><div class="grid g2"><div class="panel"><div class="section">Observations</div><ul class="observation-list" style="margin:0;padding-left:20px"><li>Campaign duration spanned 36 business days.</li><li>Prospects were engaged through telephonic calls and promotional emails.</li><li>Two assets were promoted throughout the campaign.</li><li>‘How North American Banks Modernize Their Core’ was the most frequently viewed asset, with 65.0% of its views coming from the United States.</li><li>Financial Services contributed 56.7% of total engagement.</li><li>Companies with 1001–5000 employees showed 71.7% engagement.</li></ul></div><div class="panel"><div class="section">Recommendations</div><div class="callout">Prioritize the strongest-performing asset and the Financial Services audience in future outreach.</div><div class="callout" style="margin-top:10px;border-left-color:var(--cyan)">Prioritize Ohio, New York, Arizona, Illinois and Tennessee, which collectively account for 58.3% of engagement.</div><div class="callout" style="margin-top:10px;border-left-color:var(--blue)">Use the 1001–5000 employee segment as a priority audience for follow-up and future campaigns.</div></div></div><div class="panel" style="margin-top:14px"><div class="section">Future-ready AI insight layer</div><div><span class="pill">Asset scoring</span><span class="pill">Audience scoring</span><span class="pill">Geo prioritization</span><span class="pill">Automated observations</span><span class="pill">Campaign benchmarking</span></div></div><div class="footer">VALASYS MEDIA™</div><div class="slideNo">12</div></section>
+<style>#s13 .pra-cols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;max-height:calc(100% - 120px);overflow:auto;padding-right:4px}#s13 .pra-panel{padding:10px 12px}#s13 .pra-sub{font-size:9px;color:#64748b;margin:-2px 0 6px}#s13 .pra-row{margin-bottom:5px}#s13 .pra-rl{display:flex;justify-content:space-between;gap:6px;font-size:10px;color:#334155}#s13 .pra-rl span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#s13 .pra-rl b{color:#f47b20;white-space:nowrap}#s13 .pra-bar{height:6px;background:#eef2f8;border-radius:4px;overflow:hidden;margin-top:2px}#s13 .pra-bar i{display:block;height:100%;border-radius:4px}@media(max-width:1100px){#s13 .pra-cols{grid-template-columns:repeat(2,minmax(0,1fr))}}</style><section class="slide hidden" id="s13"><div class="kicker">Lead Data Summary</div><h2 class="title">Every Lead Field &middot; Count &amp; Percentage</h2><div class="pra-cols"><div class="panel pra-panel"><div class="section">Country</div><div class="pra-sub">6 distinct &middot; 112 of 112 filled</div><div class="pra-row"><div class="pra-rl"><span title="United States">United States</span><b>61 &middot; 54.46%</b></div><div class="pra-bar"><i style="width:100%;background:#3f5bd8"></i></div></div><div class="pra-row"><div class="pra-rl"><span title="United Kingdom">United Kingdom</span><b>36 &middot; 32.14%</b></div><div class="pra-bar"><i style="width:59%;background:#f47b20"></i></div></div><div class="pra-row"><div class="pra-rl"><span title="France">France</span><b>5 &middot; 4.46%</b></div><div class="pra-bar"><i style="width:8%;background:#12a8b8"></i></div></div><div class="pra-row"><div class="pra-rl"><span title="Germany">Germany</span><b>5 &middot; 4.46%</b></div><div class="pra-bar"><i style="width:8%;background:#18a878"></i></div></div><div class="pra-row"><div class="pra-rl"><span title="Netherlands">Netherlands</span><b>4 &middot; 3.57%</b></div><div class="pra-bar"><i style="width:7%;background:#7c5ce5"></i></div></div><div class="pra-row"><div class="pra-rl"><span title="Canada">Canada</span><b>1 &middot; 0.89%</b></div><div class="pra-bar"><i style="width:3%;background:#e66aa4"></i></div></div></div><div class="panel pra-panel"><div class="section">Job Title</div><div class="pra-sub">80 distinct &middot; 112 of 112 filled</div><div class="pra-row"><div class="pra-rl"><span title="IT Manager">IT Manager</span><b>12 &middot; 10.71%</b></div><div class="pra-bar"><i style="width:100%;background:#3f5bd8"></i></div></div><div class="pra-row"><div class="pra-rl"><span title="IT Project Manager">IT Project Manager</span><b>10 &middot; 8.93%</b></div><div class="pra-bar"><i style="width:83%;background:#f47b20"></i></div></div><div class="pra-row"><div class="pra-rl"><span title="IT Operations Manager">IT Operations Manager</span><b>5 &middot; 4.46%</b></div><div class="pra-bar"><i style="width:42%;background:#12a8b8"></i></div></div><div class="pra-row"><div class="pra-rl"><span title="Chief Technology Officer">Chief Technology Officer</span><b>3 &middot; 2.68%</b></div><div class="pra-bar"><i style="width:25%;background:#18a878"></i></div></div><div class="pra-row"><div class="pra-rl"><span title="Information Technology Security Manager">Information Technology Security Manager</span><b>2 &middot; 1.79%</b></div><div class="pra-bar"><i style="width:17%;background:#7c5ce5"></i></div></div><div class="pra-row"><div class="pra-rl"><span title="Director of IT">Director of IT</span><b>2 &middot; 1.79%</b></div><div class="pra-bar"><i style="width:17%;background:#e66aa4"></i></div></div><div class="pra-row"><div class="pra-rl"><span>Other (74 more)</span><b>78 &middot; 69.64%</b></div></div></div><div class="panel pra-panel"><div class="section">Job Function</div><div class="pra-sub">3 distinct &middot; 112 of 112 filled</div><div class="pra-row"><div class="pra-rl"><span title="Information Technology">Information Technology</span><b>102 &middot; 91.07%</b></div><div class="pra-bar"><i style="width:100%;background:#3f5bd8"></i></div></div><div class="pra-row"><div class="pra-rl"><span title="Operation">Operation</span><b>6 &middot; 5.36%</b></div><div class="pra-bar"><i style="width:6%;background:#f47b20"></i></div></div><div class="pra-row"><div class="pra-rl"><span title="Human Resource">Human Resource</span><b>4 &middot; 3.57%</b></div><div class="pra-bar"><i style="width:4%;background:#12a8b8"></i></div></div></div><div class="panel pra-panel"><div class="section">Job Level</div><div class="pra-sub">4 distinct &middot; 112 of 112 filled</div><div class="pra-row"><div class="pra-rl"><span title="Manager">Manager</span><b>72 &middot; 64.29%</b></div><div class="pra-bar"><i style="width:100%;background:#3f5bd8"></i></div></div><div class="pra-row"><div class="pra-rl"><span title="Director">Director</span><b>32 &middot; 28.57%</b></div><div class="pra-bar"><i style="width:44%;background:#f47b20"></i></div></div><div class="pra-row"><div class="pra-rl"><span title="Vice President">Vice President</span><b>5 &middot; 4.46%</b></div><div class="pra-bar"><i style="width:7%;background:#12a8b8"></i></div></div><div class="pra-row"><div class="pra-rl"><span title="C-Level">C-Level</span><b>3 &middot; 2.68%</b></div><div class="pra-bar"><i style="width:4%;background:#18a878"></i></div></div></div><div class="panel pra-panel"><div class="section">Company Size</div><div class="pra-sub">6 distinct &middot; 112 of 112 filled</div><div class="pra-row"><div class="pra-rl"><span title="1001-5000">1001-5000</span><b>40 &middot; 35.71%</b></div><div class="pra-bar"><i style="width:100%;background:#3f5bd8"></i></div></div><div class="pra-row"><div class="pra-rl"><span title="5001-10000">5001-10000</span><b>27 &middot; 24.11%</b></div><div class="pra-bar"><i style="width:68%;background:#f47b20"></i></div></div><div class="pra-row"><div class="pra-rl"><span title="201-500">201-500</span><b>16 &middot; 14.29%</b></div><div class="pra-bar"><i style="width:40%;background:#12a8b8"></i></div></div><div class="pra-row"><div class="pra-rl"><span title="501-1000">501-1000</span><b>15 &middot; 13.39%</b></div><div class="pra-bar"><i style="width:38%;background:#18a878"></i></div></div><div class="pra-row"><div class="pra-rl"><span title="10001+">10001+</span><b>11 &middot; 9.82%</b></div><div class="pra-bar"><i style="width:28%;background:#7c5ce5"></i></div></div><div class="pra-row"><div class="pra-rl"><span title="51-200">51-200</span><b>3 &middot; 2.68%</b></div><div class="pra-bar"><i style="width:8%;background:#e66aa4"></i></div></div></div><div class="panel pra-panel"><div class="section">Industry</div><div class="pra-sub">14 distinct &middot; 112 of 112 filled</div><div class="pra-row"><div class="pra-rl"><span title="Financial Services">Financial Services</span><b>33 &middot; 29.46%</b></div><div class="pra-bar"><i style="width:100%;background:#3f5bd8"></i></div></div><div class="pra-row"><div class="pra-rl"><span title="Manufacturing">Manufacturing</span><b>23 &middot; 20.54%</b></div><div class="pra-bar"><i style="width:70%;background:#f47b20"></i></div></div><div class="pra-row"><div class="pra-rl"><span title="Real Estate &amp; Construction">Real Estate &amp; Construction</span><b>11 &middot; 9.82%</b></div><div class="pra-bar"><i style="width:33%;background:#12a8b8"></i></div></div><div class="pra-row"><div class="pra-rl"><span title="Marketing &amp; Advertising Services">Marketing &amp; Advertising Services</span><b>9 &middot; 8.04%</b></div><div class="pra-bar"><i style="width:27%;background:#18a878"></i></div></div><div class="pra-row"><div class="pra-rl"><span title="Legal Services">Legal Services</span><b>9 &middot; 8.04%</b></div><div class="pra-bar"><i style="width:27%;background:#7c5ce5"></i></div></div><div class="pra-row"><div class="pra-rl"><span title="Education">Education</span><b>6 &middot; 5.36%</b></div><div class="pra-bar"><i style="width:18%;background:#e66aa4"></i></div></div><div class="pra-row"><div class="pra-rl"><span>Other (8 more)</span><b>21 &middot; 18.75%</b></div></div></div><div class="panel pra-panel"><div class="section">Asset</div><div class="pra-sub">5 distinct &middot; 112 of 112 filled</div><div class="pra-row"><div class="pra-rl"><span title="Fearless VDI Transformation eBook">Fearless VDI Transformation eBook</span><b>37 &middot; 33.04%</b></div><div class="pra-bar"><i style="width:100%;background:#3f5bd8"></i></div></div><div class="pra-row"><div class="pra-rl"><span title="Make the Switch from Citrix to Omnissa Horizon eBook">Make the Switch from Citrix to Omnissa Horizon eBook</span><b>26 &middot; 23.21%</b></div><div class="pra-bar"><i style="width:70%;background:#f47b20"></i></div></div><div class="pra-row"><div class="pra-rl"><span title="Wiewelhove GmhH Case Study">Wiewelhove GmhH Case Study</span><b>22 &middot; 19.64%</b></div><div class="pra-bar"><i style="width:59%;background:#12a8b8"></i></div></div><div class="pra-row"><div class="pra-rl"><span title="Omnissa one Mgmt. Solution for All Your Apps eBook">Omnissa one Mgmt. Solution for All Your Apps eBook</span><b>19 &middot; 16.96%</b></div><div class="pra-bar"><i style="width:51%;background:#18a878"></i></div></div><div class="pra-row"><div class="pra-rl"><span title="Real stories, Real Value: Customers like you">Real stories, Real Value: Customers like you</span><b>8 &middot; 7.14%</b></div><div class="pra-bar"><i style="width:22%;background:#7c5ce5"></i></div></div></div><div class="panel pra-panel"><div class="section">Decision Makers</div><div class="pra-sub">2 distinct &middot; 112 of 112 filled</div><div class="pra-row"><div class="pra-rl"><span title="Influencers">Influencers</span><b>72 &middot; 64.29%</b></div><div class="pra-bar"><i style="width:100%;background:#3f5bd8"></i></div></div><div class="pra-row"><div class="pra-rl"><span title="Decision Makers">Decision Makers</span><b>40 &middot; 35.71%</b></div><div class="pra-bar"><i style="width:56%;background:#f47b20"></i></div></div></div></div><div class="footer">VALASYS MEDIA</div><div class="slideNo">13</div></section>
+</div>
+
+</main>
+</div>
+<script>
+const slides=[...document.querySelectorAll('#deckView .slide')];let current=0;let geoInitialized=false;const colors=['#3f5bd8','#f47b20','#12a8b8','#18a878','#7c5ce5','#e66aa4'];
+function update(){slides.forEach((s,i)=>s.classList.toggle('hidden',i!==current));if(document.getElementById('indicator')) document.getElementById('indicator').textContent=`${current+1} / ${slides.length}`;if(document.getElementById('topIndicator')) document.getElementById('topIndicator').textContent=`${current+1} / ${slides.length}`;document.getElementById('progress').style.width=((current+1)/slides.length*100)+'%';document.querySelectorAll('.slide-nav-item').forEach((b,i)=>b.classList.toggle('active',i===current));if(current===4&&!geoInitialized)initMap()}
+
+function goToSlide(index){if(index>=0&&index<slides.length){current=index;update();}}
+function toggleFullscreen(){const el=document.documentElement;if(!document.fullscreenElement){el.requestFullscreen?.()}else{document.exitFullscreen?.()}}
+function nextSlide(){if(current<slides.length-1){current++;update()}}
+function prevSlide(){if(current>0){current--;update()}}
+document.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();nextSlide()}if(e.key==='ArrowLeft')prevSlide()});
+function common(type,labels,data,opts={}){
+  return new Chart(document.getElementById(opts.id),{
+    type:type,
+    data:{labels:labels,datasets:[{data:data,backgroundColor:opts.bg||colors,borderColor:opts.border||colors,borderWidth:opts.borderWidth??0,borderRadius:opts.radius??4,label:opts.label||''}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,indexAxis:opts.indexAxis||'x',
+      plugins:{
+        legend:{display:!!opts.legend,position:'bottom',labels:{color:'#64748b',font:{size:9}}},
+        tooltip:{callbacks:{label:c=>`${c.label}: ${c.raw}${opts.percent?'%':''}`}}
+      },
+      scales:type==='doughnut'?{}:{
+        x:{ticks:{color:'#64748b',font:{size:9}},grid:{display:false}},
+        y:{beginAtZero:true,ticks:{color:'#64748b',font:{size:9}},grid:{color:'#edf0f4'}}
+      }
+    }
+  });
+}
+window.addEventListener('DOMContentLoaded',()=>{
+common('bar',['Vice President','Director','C-Level'],[4,14,42],{id:'jobLevel',bg:['#f28a3d','#4e7fd8','#12e7d4']});
+common('bar',['C-Level','Director','Vice President'],[70,23.3,6.7],{id:'jobSplit',bg:['#12e7d4','#8d6de7','#f28a3d'],percent:true,indexAxis:'y'});
+new Chart(document.getElementById('jobFunctions'),{type:'line',data:{labels:['Operations','Information Technology','Finance'],datasets:[{label:'Function Share',data:[48.33,41.67,10],borderColor:'#f47b20',backgroundColor:'rgba(244,123,32,.12)',pointBackgroundColor:'#f47b20',pointBorderColor:'#f47b20',pointRadius:5,pointHoverRadius:6,borderWidth:3,tension:.3,fill:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.label}: ${c.raw}%`}}},scales:{x:{ticks:{color:'#64748b',font:{size:9}},grid:{display:false}},y:{beginAtZero:true,max:60,ticks:{color:'#64748b',font:{size:9},callback:v=>v+'%'},grid:{color:'#edf0f4'}}}}});
+common('bar',['Financial Services','Banking'],[56.7,43.3],{id:'industries',bg:['#4e7fd8','#f28a3d'],percent:true,indexAxis:'y'});
+common('bar',['10001+','5001-10000','1001-5000'],[71.7,3.3,25],{id:'employeeSize',bg:['#f28a3d','#8d6de7','#12a8b8'],percent:true});
+common('doughnut',['Desktops/Laptops','Mobiles/Tablets'],[80.2,19.8],{id:'devices',bg:['#4e7fd8','#f28a3d'],legend:true,percent:true});
+common('doughnut',['How North American Banks Modernize Their Core','IDC MarketScape'],[65,35],{id:'assetSplit',bg:['#4e7fd8','#f28a3d'],legend:true,percent:true});
+new Chart(document.getElementById('assetIndustry'),{type:'bar',data:{labels:['Financial Services','Banking'],datasets:[{label:'Core Asset',data:[24,15],backgroundColor:'#3f5bd8'},{label:'IDC MarketScape',data:[10,11],backgroundColor:'#f47b20'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'bottom',labels:{color:'#64748b',font:{size:9}}}},scales:{x:{ticks:{color:'#64748b',font:{size:9}},grid:{display:false}},y:{beginAtZero:true,ticks:{color:'#64748b',font:{size:9}},grid:{color:'#edf0f4'}}}}});
+new Chart(document.getElementById('assetSize'),{type:'bar',data:{labels:['10001+','5001-10000','1001-5000'],datasets:[{label:'Core Asset',data:[9,1,15],backgroundColor:'#3f5bd8'},{label:'IDC MarketScape',data:[1,1,9],backgroundColor:'#f47b20'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'bottom',labels:{color:'#64748b',font:{size:9}}}},scales:{x:{ticks:{color:'#64748b',font:{size:9}},grid:{display:false}},y:{beginAtZero:true,ticks:{color:'#64748b',font:{size:9}},grid:{color:'#edf0f4'}}}}});
+new Chart(document.getElementById('assetJob'),{type:'bar',data:{labels:['How North American Banks Modernize Their Core','IDC MarketScape'],datasets:[{label:'C-Level',data:[27,15],backgroundColor:'#12a8b8'},{label:'Director',data:[9,5],backgroundColor:'#3f5bd8'},{label:'Vice President',data:[2,1],backgroundColor:'#f47b20'}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:true,position:'bottom',labels:{color:'#64748b',font:{size:9}}}},scales:{x:{stacked:true,ticks:{color:'#64748b'},grid:{color:'#edf0f4'}},y:{stacked:true,ticks:{color:'#64748b',font:{size:9}},grid:{display:false}}}}});
+common('bar',['How North American Banks Modernize Their Core','IDC MarketScape'],[445,243],{id:'openChart',bg:['#4e7fd8','#f28a3d'],indexAxis:'y'});
+common('bar',['How North American Banks Modernize Their Core','IDC MarketScape'],[160,87],{id:'clickChart',bg:['#4e7fd8','#f28a3d'],indexAxis:'y'});
+common('bar',['How North American Banks Modernize Their Core','IDC MarketScape'],[44,24],{id:'conversionChart',bg:['#4e7fd8','#f28a3d'],indexAxis:'y'});
+common('bar',['Delivered','Open','Clicks','Conversion','Bounce'],[98.3,25.5,9.1,2.5,1.7],{id:'statsChart',bg:['#12e7d4','#4e7fd8','#f28a3d','#69d86e','#8d6de7'],percent:true,indexAxis:'y'});
+});
+function initMap(){geoInitialized=true;const map=L.map('geoMap',{zoomControl:false,scrollWheelZoom:false,attributionControl:true}).setView([39.2,-96.5],4);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:10,attribution:'© OpenStreetMap'}).addTo(map);const points=[['New York',42.95,-75.0,12,'20.0%'],['Ohio',40.3,-82.9,10,'16.7%'],['Arizona',34.1,-111.9,5,'8.3%'],['Illinois',40.0,-89.2,5,'8.3%'],['Tennessee',35.8,-86.3,3,'5.0%']];points.forEach(([name,lat,lon,count,pct])=>{const r=7+count*0.45;L.circleMarker([lat,lon],{radius:r,color:'#f28a3d',fillColor:'#f28a3d',fillOpacity:.72,weight:1}).addTo(map).bindTooltip(`<b>${name}</b><br>${count} leads • ${pct}`,{direction:'top'});});}
+
+// VAIS-style contextual icons for section headers and KPI labels
+document.addEventListener('DOMContentLoaded',()=>{
+  const iconMap={
+    'job level':'◉','job level split':'◈','job functions':'⌁','senior audience mix':'◎',
+    'top industries':'▥','employee size':'▤','devices':'▣','industry split':'◫','device mix':'◧',
+    'geographic reach':'⌖','asset split':'◈','asset engagement by top industries':'▥',
+    'employee size':'▤','job level':'◉','statistics split':'◒','executive readout':'✦',
+    'observations':'◌','recommendations':'✦','future-ready ai insight layer':'✧','lead count':'◉',
+    'open rate':'◔','click rate':'◉','delivery rate':'✓','open share — core asset':'◔','click share — core asset':'◉','conversion share — core asset':'◆'
+  };
+  document.querySelectorAll('.section').forEach(el=>{
+    if(el.querySelector('.section-icon')) return;
+    const key=el.textContent.trim().toLowerCase();
+    const icon=iconMap[key]||'✦';
+    const span=document.createElement('span'); span.className='section-icon'; span.textContent=icon; el.prepend(span);
+  });
+  document.querySelectorAll('.metric .label').forEach(el=>{
+    if(el.closest('.stats-card')) return;
+    if(el.querySelector('.metric-icon')) return;
+    const key=el.textContent.trim().toLowerCase();
+    const icon=key.includes('lead')?'◉':key.includes('asset')?'◈':key.includes('sent')?'➤':key.includes('deliver')?'✓':key.includes('open')?'◔':key.includes('click')?'⌁':key.includes('conversion')?'◆':key.includes('bounce')?'⊘':'✦';
+    const span=document.createElement('span');span.className='metric-icon';span.textContent=icon;span.style.cssText='display:inline-flex;width:22px;height:22px;align-items:center;justify-content:center;border-radius:7px;background:#fff4ea;color:#f47b20;margin-right:7px;font-size:12px;font-weight:800;vertical-align:middle;';
+    el.prepend(span);
+  });
+});
+update();
+</script>
+
+
+<!-- ==========================================================
+     DYNAMIC PRA LAYER - generated by generate_dynamic_pra.py
+     ========================================================== -->
+<script>
+const PRA = {"campaign_name": "Test Campaing", "report_date": "October 2026", "period": "October 2026", "palette": ["#1e293b", "#334155", "#475569", "#64748b", "#94a3b8", "#cbd5e1", "#0f172a", "#7c8ba1"], "start_date": "October 2026", "end_date": "October 2026", "prepared_by": "Quality Department", "lead_count": 112, "sent": 112, "delivered": 45, "opens": 34, "clicks": 23, "conversion": 45, "bounced": 67, "delivery_rate": 40.17857142857143, "open_rate": 75.55555555555556, "click_rate": 51.11111111111111, "conversion_rate": 100.0, "bounce_rate": 59.82142857142857, "business_days": 1, "job_labels": ["C-Level", "Vice President", "Director", "Manager"], "job_values": [3, 5, 32, 72], "job_split_labels": ["C-Level", "Vice President", "Director", "Manager"], "job_split_values": [3, 5, 32, 72], "func_labels": ["Information Technology", "Operation", "Human Resource"], "func_values": [102, 6, 4], "industry_labels": ["Financial Services", "Manufacturing", "Real Estate & Construction", "Marketing & Advertising Services", "Legal Services", "Education"], "industry_values": [33, 23, 11, 9, 9, 6], "size_labels": ["1001-5000", "5001-10000", "201-500", "501-1000", "10001+", "51-200"], "size_values": [40, 27, 16, 15, 11, 3], "asset_labels": ["Fearless VDI Transformation eBook", "Make the Switch from Citrix to Omnissa Horizon eBook", "Wiewelhove GmhH Case Study", "Omnissa one Mgmt. Solution for All Your Apps eBook", "Real stories, Real Value: Customers like you"], "asset_values": [37, 26, 22, 19, 8], "unique_asset_count": 5, "decision_labels": ["Influencers", "Decision Makers"], "decision_values": [72, 40], "device_labels": ["Influencers", "Decision Makers"], "device_values": [72, 40], "device_mix_is_estimate": false, "device_title": "Decision Maker Mix", "maps_key": "AIzaSyDAOdpUWNGiLcs37SsTbFzS6GWhA7trCdA", "asset_open_labels": ["Fearless VDI Transformation eBook", "Make the Switch from Citrix to Omnissa Horizon eBook", "Wiewelhove GmhH Case Study", "Omnissa one Mgmt. Solution for All Your Apps eBook", "Real stories, Real Value: Customers like you"], "asset_open_values": [11, 8, 7, 6, 2], "asset_click_labels": ["Fearless VDI Transformation eBook", "Make the Switch from Citrix to Omnissa Horizon eBook", "Wiewelhove GmhH Case Study", "Omnissa one Mgmt. Solution for All Your Apps eBook", "Real stories, Real Value: Customers like you"], "asset_click_values": [8, 5, 4, 4, 2], "asset_conv_labels": ["Fearless VDI Transformation eBook", "Make the Switch from Citrix to Omnissa Horizon eBook", "Wiewelhove GmhH Case Study", "Omnissa one Mgmt. Solution for All Your Apps eBook", "Real stories, Real Value: Customers like you"], "asset_conv_values": [15, 10, 9, 8, 3], "country_labels": ["United States", "United Kingdom", "France", "Germany", "Netherlands", "Canada"], "country_values": [61, 36, 5, 5, 4, 1], "asset_event_note": "Asset-level Open/Click/Conversion columns were not found. The report allocates total campaign events in proportion to asset lead share; this is a calculated allocation, not measured asset engagement.", "geo_total": 112, "top_job_name": "C-Level", "top_job_count": 3, "top_industry_name": "Financial Services", "top_industry_count": 33, "top_size_name": "1001-5000", "top_size_count": 40, "top_asset_name": "Fearless VDI Transformation eBook", "top_asset_count": 37, "senior_cards": "<div class=\"audience-stat\"><span class=\"pill\">C-Level</span><b>3</b><small>2.68%</small></div><div class=\"audience-stat\"><span class=\"pill\">Director</span><b>32</b><small>28.57%</small></div><div class=\"audience-stat\"><span class=\"pill\">Vice President</span><b>5</b><small>4.46%</small></div>", "industry_split_html": "<div><div style=\"font-size:30px;color:var(--blue);font-weight:900\">29.46%</div><div style=\"font-size:10px;color:#64748b\">Financial Services</div></div><div><div style=\"font-size:30px;color:var(--orange);font-weight:900\">20.54%</div><div style=\"font-size:10px;color:#64748b\">Manufacturing</div></div>", "device_mix_text": "<b style=\"color:var(--cyan)\">64.29%</b> Influencers (72) &nbsp; <b style=\"color:var(--orange)\">35.71%</b> Decision Makers (40)", "geo_rows": "<div class=\"geo-item\"><a href=\"https://www.google.com/maps/search/?api=1&amp;query=United%20States\" data-map-query=\"United States\" target=\"_blank\" rel=\"noopener\">United States</a><b>61 leads · 54.46%</b></div><div class=\"geo-item\"><a href=\"https://www.google.com/maps/search/?api=1&amp;query=United%20Kingdom\" data-map-query=\"United Kingdom\" target=\"_blank\" rel=\"noopener\">United Kingdom</a><b>36 leads · 32.14%</b></div><div class=\"geo-item\"><a href=\"https://www.google.com/maps/search/?api=1&amp;query=France\" data-map-query=\"France\" target=\"_blank\" rel=\"noopener\">France</a><b>5 leads · 4.46%</b></div><div class=\"geo-item\"><a href=\"https://www.google.com/maps/search/?api=1&amp;query=Germany\" data-map-query=\"Germany\" target=\"_blank\" rel=\"noopener\">Germany</a><b>5 leads · 4.46%</b></div><div class=\"geo-item\"><a href=\"https://www.google.com/maps/search/?api=1&amp;query=Netherlands\" data-map-query=\"Netherlands\" target=\"_blank\" rel=\"noopener\">Netherlands</a><b>4 leads · 3.57%</b></div><div class=\"geo-item\"><a href=\"https://www.google.com/maps/search/?api=1&amp;query=Canada\" data-map-query=\"Canada\" target=\"_blank\" rel=\"noopener\">Canada</a><b>1 leads · 0.89%</b></div>", "table_asset_rows": "<tr><td>Fearless VDI Transformation eBook</td><td class='num'>9</td><td class='num'>6</td><td class='num'>37</td></tr><tr><td>Make the Switch from Citrix to Omnissa Horizon eBook</td><td class='num'>8</td><td class='num'>6</td><td class='num'>26</td></tr><tr><td>Wiewelhove GmhH Case Study</td><td class='num'>9</td><td class='num'>4</td><td class='num'>22</td></tr><tr><td>Omnissa one Mgmt. Solution for All Your Apps eBook</td><td class='num'>4</td><td class='num'>6</td><td class='num'>19</td></tr><tr><td>Real stories, Real Value: Customers like you</td><td class='num'>3</td><td class='num'>1</td><td class='num'>8</td></tr>", "industry_names": ["Financial Services", "Manufacturing", "Real Estate & Construction", "Marketing & Advertising Services", "Legal Services", "Education"], "asset_names": ["Fearless VDI Transformation eBook", "Make the Switch from Citrix to Omnissa Horizon eBook", "Wiewelhove GmhH Case Study", "Omnissa one Mgmt. Solution for All Your Apps eBook", "Real stories, Real Value: Customers like you"], "size_names": ["1001-5000", "5001-10000", "201-500", "501-1000", "10001+", "51-200"], "asset_size_matrix": [[12, 10, 5, 6, 4, 0], [6, 7, 6, 4, 2, 1], [13, 3, 1, 2, 2, 1], [6, 7, 3, 1, 2, 0], [3, 0, 1, 2, 1, 1]], "job_names": ["C-Level", "Vice President", "Director", "Manager"], "asset_job_matrix": [[0, 2, 11, 24], [2, 1, 8, 15], [1, 1, 5, 15], [0, 1, 6, 12], [0, 0, 2, 6]], "observations": ["Campaign generated 112 leads in 1 business days.", "C-Level is the largest job-level segment with 3 leads (2.68%).", "Financial Services is the largest industry segment with 33 leads (29.46%).", "1001-5000 is the largest company-size segment with 40 leads (35.71%).", "Fearless VDI Transformation eBook is the largest assigned asset segment with 37 leads (33.04%).", "Delivery rate is 40.18%, open rate is 75.56%, click rate is 51.11%, and conversion rate is 100.00%."], "recommendations": ["Prioritize C-Level and Financial Services audiences in the next campaign cycle based on the current lead mix.", "Use the strongest asset segment, Fearless VDI Transformation eBook, as a starting point for follow-up and asset planning.", "Focus geographic follow-up on United States, United Kingdom, France, Germany, Netherlands where the top five locations represent 99.11% of the raw lead base."], "geo_spec": {"available": true, "points": [["United States", 39.8283, -98.5795, 61], ["United Kingdom", 55.3781, -3.436, 36], ["France", 46.2276, 2.2137, 5], ["Germany", 51.1657, 10.4515, 5], ["Netherlands", 52.1326, 5.2913, 4], ["Canada", 56.1304, -106.3468, 1]], "trace": {"type": "scatter3d", "mode": "markers+text", "x": [-98.5795, -3.436, 2.2137, 10.4515, 5.2913, -106.3468], "y": [39.8283, 55.3781, 46.2276, 51.1657, 52.1326, 56.1304], "z": [61, 36, 5, 5, 4, 1], "text": ["United States", "United Kingdom", "France", "Germany", "Netherlands", "Canada"], "customdata": [61, 36, 5, 5, 4, 1], "textposition": "top center", "hovertemplate": "<b>%{text}</b><br>Leads: %{customdata}<extra></extra>", "marker": {"size": [26.0, 18.62295081967213, 9.475409836065573, 9.475409836065573, 9.180327868852459, 8.295081967213115], "color": [61, 36, 5, 5, 4, 1], "colorscale": [[0.0, "#ffe0c2"], [0.5, "#f47b20"], [1.0, "#a63e00"]], "showscale": true, "colorbar": {"title": "Leads", "thickness": 10, "len": 0.65, "tickfont": {"size": 9}}, "opacity": 0.8, "line": {"width": 1, "color": "#ffffff"}}}, "layout": {"height": 220, "margin": {"l": 0, "r": 0, "t": 4, "b": 0}, "paper_bgcolor": "rgba(0,0,0,0)", "plot_bgcolor": "rgba(0,0,0,0)", "scene": {"xaxis": {"title": "Longitude", "gridcolor": "#d7dde5", "zerolinecolor": "#d7dde5"}, "yaxis": {"title": "Latitude", "gridcolor": "#d7dde5", "zerolinecolor": "#d7dde5"}, "zaxis": {"title": "Leads", "gridcolor": "#d7dde5", "rangemode": "tozero"}, "bgcolor": "rgba(0,0,0,0)", "camera": {"eye": {"x": 1.45, "y": 1.45, "z": 0.95}}}}}};
+
+function praText(root, exactText, newText) {
+  const walker = document.createTreeWalker(root || document.body, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = walker.nextNode())) {
+    if (node.nodeValue.trim() === exactText) {
+      node.nodeValue = node.nodeValue.replace(exactText, String(newText));
+      return true;
+    }
+  }
+  return false;
+}
+
+function praAllText(root, oldText, newText) {
+  const walker = document.createTreeWalker(root || document.body, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = walker.nextNode())) {
+    if (node.nodeValue.includes(oldText)) {
+      node.nodeValue = node.nodeValue.split(oldText).join(String(newText));
+    }
+  }
+}
+
+function praNumber(v) {
+  return v === null || v === undefined ? 'N/A' : Number(v).toLocaleString('en-US');
+}
+
+function praPct(v) {
+  return v === null || v === undefined ? 'N/A' : Number(v).toFixed(2) + '%';
+}
+
+function praRebuildGroupedChart(containerId, labels, datasets, options={}) {
+  const canvas = document.getElementById(containerId);
+  if (!canvas || typeof Chart === 'undefined') return;
+  try { const old = Chart.getChart(canvas); if (old) old.destroy(); } catch (e) {}
+  new Chart(canvas, {
+    type:'bar',
+    data:{labels:labels,datasets:datasets},
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      indexAxis:options.indexAxis || 'x',
+      plugins:{legend:{display:!!options.legend,position:'bottom'}},
+      scales:{
+        x:{ticks:{color:'#64748b',font:{size:9}},grid:{display:options.indexAxis !== 'y'}},
+        y:{beginAtZero:true,ticks:{color:'#64748b',font:{size:9}},grid:{color:'#edf0f4'}}
+      }
+    }
+  });
+}
+
+function praRebuildChart(canvasId, type, labels, values, options={}) {
+  const el = document.getElementById(canvasId);
+  if (!el || typeof Chart === 'undefined') return;
+  try { const old = Chart.getChart(el); if (old) old.destroy(); } catch (e) {}
+  const background = options.bg || ['#3f5bd8','#f47b20','#12a8b8','#18a878','#7c5ce5','#e66aa4'];
+  const dataset = {
+    data:values,
+    backgroundColor:background,
+    borderColor:options.border || background,
+    borderWidth:options.borderWidth || 0,
+    borderRadius:options.radius || 4,
+    pointRadius:4,tension:0.28,fill:options.fill || false
+  };
+  new Chart(el, {
+    type:type,
+    data:{labels:labels,datasets:[dataset]},
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      indexAxis:options.indexAxis || 'x',
+      plugins:{legend:{display:!!options.legend,position:'bottom'}},
+      scales:type === 'doughnut' ? {} : {
+        x:options.indexAxis === 'y'
+          ? {beginAtZero:true,grid:{color:'#edf0f4'},ticks:{callback:function(v){return options.percent ? Number(v).toFixed(2) + '%' : v;}}}
+          : {grid:{display:false}},
+        y:options.indexAxis === 'y'
+          ? {grid:{display:false}}
+          : {beginAtZero:true,grid:{color:'#edf0f4'},ticks:{callback:function(v){return options.percent ? Number(v).toFixed(2) + '%' : v;}}}
+      }
+    }
+  });
+}
+
+function praUpdateTopbarAndCover() {
+  document.title = 'VAIS | ' + PRA.campaign_name + ' | Program Analysis Report';
+
+  const topH1 = document.querySelector('.brand-copy h1');
+  const topPeriod = document.querySelector('.meta-block:nth-of-type(1) b');
+  const topPrepared = document.querySelector('.meta-block:nth-of-type(2) b');
+
+  if (topH1) topH1.textContent = PRA.campaign_name;
+  if (topPeriod) topPeriod.textContent = PRA.period;
+  if (topPrepared) topPrepared.textContent = PRA.prepared_by;
+
+  const coverCampaign = document.querySelector('#s1 .campaign');
+  const coverPrepared = document.querySelector('#s1 .prepared');
+  if (coverCampaign) coverCampaign.textContent = PRA.campaign_name;
+  if (coverPrepared) coverPrepared.innerHTML = 'Prepared by: ' + PRA.prepared_by + '<br/>' + PRA.report_date;
+}
+
+function praUpdateSlide3() {
+  const s = document.getElementById('s3');
+  if (!s) return;
+
+  // Lead count
+  const leadValue = s.querySelector('.metric .value');
+  if (leadValue) leadValue.textContent = praNumber(PRA.lead_count);
+
+  // Senior audience cards
+  const stats = s.querySelectorAll('.audience-stat');
+  const cards = [
+    ...[
+      ['C-Level', 'c-level'], ['Director', 'director'], ['Vice President', 'vice president']
+    ]
+  ];
+  const raw = PRA.job_labels.map((n,i)=>({name:n,count:PRA.job_values[i]}));
+  const preferred = ['c-level','director','vice president'];
+  let selected = preferred
+    .map(k => raw.find(x => x.name.toLowerCase().trim() === k))
+    .filter(Boolean);
+
+  raw.forEach(x => {
+    if (selected.length < 3 && !selected.some(y => y.name === x.name)) selected.push(x);
+  });
+  while (selected.length < 3) selected.push({name:'N/A',count:0});
+
+  stats.forEach((el, i) => {
+    const pair = selected[i];
+    const pill = el.querySelector('.pill');
+    const val = el.querySelector('b');
+    const small = el.querySelector('small');
+    if (pill) pill.textContent = pair.name;
+    if (val) val.textContent = praNumber(pair.count);
+    if (small) small.textContent = praPct((pair.count / PRA.lead_count) * 100);
+  });
+
+  const callout = s.querySelector('.callout');
+  if (callout) {
+    callout.textContent = 'The campaign generated ' + praNumber(PRA.lead_count) +
+      ' leads, with ' + PRA.top_job_name + ' contacts representing the largest job-level segment at ' +
+      praPct((PRA.top_job_count / PRA.lead_count) * 100) + '.';
+  }
+}
+
+function praUpdateSlide4() {
+  const s = document.getElementById('s4');
+  if (!s) return;
+
+  const metricValue = s.querySelector('.metric .value');
+  const metricNote = s.querySelector('.metric .note');
+  if (metricValue) metricValue.textContent = String(PRA.industry_labels.length);
+  if (metricNote) metricNote.textContent = PRA.industry_labels.slice(0,3).join(' • ') || 'No industry data';
+
+  const industrySplit = s.querySelector('.panel .section + .grid.g2');
+  const panels = s.querySelectorAll('.panel');
+  const sectionTitle = panel => {
+    const section = panel.querySelector('.section');
+    if (!section) return '';
+    const copy = section.cloneNode(true);
+    copy.querySelector('.section-icon')?.remove();
+    return copy.textContent.trim();
+  };
+  const industryBox = [...panels].find(x => sectionTitle(x) === 'Industry Split');
+  const deviceBox = [...panels].find(x => sectionTitle(x) === 'Device Mix');
+
+  if (industryBox) {
+    const grid = industryBox.querySelector('.grid.g2');
+    if (grid) grid.innerHTML = PRA.industry_split_html;
+  }
+  if (deviceBox) {
+    const wrap = deviceBox.querySelector('div[style*="font-size:13px"]');
+    if (wrap) wrap.innerHTML = PRA.device_mix_text;
+  }
+}
+
+function praUpdateSlide5() {
+  const s = document.getElementById('s5');
+  if (!s) return;
+  const metricValue = s.querySelector('.metric .value');
+  if (metricValue) metricValue.textContent = String(PRA.geo_total);
+
+  const geoList = s.querySelector('.geo-list');
+  if (geoList) geoList.innerHTML = PRA.geo_rows;
+
+  const callout = s.querySelector('.callout');
+  if (callout) {
+    const top = PRA.geo_rows ? 'Geographic concentration is based on the top five locations in the raw lead file.' :
+      'No geographic data is available in the raw lead file.';
+    callout.textContent = top;
+  }
+
+  const map = document.getElementById('geoMap');
+  if (map) {
+    const firstCountry = PRA.geo_rows ? (PRA.geo_rows.match(/data-map-query="([^"]+)"/) || [])[1] : '';
+    const mapQuery = encodeURIComponent(firstCountry || 'North America');
+    map.innerHTML = '<div style="width:100%;height:210px"><canvas id="praGeoChart"></canvas></div>' +
+      '<iframe id="praGoogleMap" title="Google Maps country location" ' +
+      'src="https://www.google.com/maps?q=' + mapQuery + '&output=embed" ' +
+      'style="width:100%;height:210px;border:0" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>';
+    map.style.height = '430px';
+    map.style.overflow = 'hidden';
+    const geoCanvas = document.getElementById('praGeoChart');
+    if (geoCanvas && typeof Chart !== 'undefined') {
+      new Chart(geoCanvas, {
+        type:'bar',
+        data:{
+          labels:PRA.country_labels,
+          datasets:[{label:'Leads',data:PRA.country_values,backgroundColor:'#f47b20',borderRadius:3}]
+        },
+        options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+          plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.raw + ' leads'}}},
+          scales:{x:{beginAtZero:true,ticks:{precision:0,color:'#64748b'},grid:{color:'#edf0f4'}},
+            y:{ticks:{color:'#334155',font:{size:10}},grid:{display:false}}}
+        }
+      });
+    }
+
+    if (geoList) geoList.addEventListener('click', function(event) {
+      const link = event.target.closest('a[data-map-query]');
+      const frame = document.getElementById('praGoogleMap');
+      if (link && frame) frame.src = 'https://www.google.com/maps?q=' + encodeURIComponent(link.dataset.mapQuery) + '&output=embed';
+    });
+  }
+
+  // Prevent the old Leaflet initializer from running on this map.
+  try { window.geoInitialized = true; } catch (e) {}
+  try { window.initMap = function() { return true; }; } catch (e) {}
+}
+
+function praUpdateSlide6() {
+  const s = document.getElementById('s6');
+  if (!s) return;
+
+  const uniqueAssets = s.querySelector('.metric .value');
+  const assetNote = s.querySelector('.metric .note');
+  if (uniqueAssets) uniqueAssets.textContent = String(PRA.unique_asset_count);
+  if (assetNote) assetNote.textContent = 'Unique assets in source data';
+
+  const table = s.querySelector('table tbody');
+  if (table) table.innerHTML = PRA.table_asset_rows;
+
+  const headers = s.querySelectorAll('table th');
+  if (headers.length >= 4) {
+    headers[0].textContent = 'Asset';
+    headers[1].textContent = PRA.industry_labels[0] || 'Industry 1';
+    headers[2].textContent = PRA.industry_labels[1] || 'Industry 2';
+    headers[3].textContent = 'Total';
+  }
+
+  const chartGrid = s.querySelector('.grid.g3');
+  const industryPanel = s.querySelector('#assetIndustry')?.closest('.panel');
+  if (chartGrid && industryPanel) {
+    chartGrid.style.gridTemplateColumns = 'repeat(3, minmax(0, 1fr))';
+    chartGrid.style.alignItems = 'start';
+    industryPanel.style.gridColumn = 'auto';
+    const industryChart = industryPanel.querySelector('.chartbox');
+    if (industryChart) industryChart.style.height = '300px';
+    if (!document.getElementById('praIndustryChartLayout')) {
+      const style = document.createElement('style');
+      style.id = 'praIndustryChartLayout';
+      style.textContent = '@media(max-width:760px){#s6 .grid.g3{grid-template-columns:1fr!important}}';
+      document.head.appendChild(style);
+    }
+  }
+}
+
+function praUpdateSlide7() {
+  const s = document.getElementById('s7');
+  if (!s) return;
+  const callout = s.querySelector('.callout');
+  if (callout) {
+    callout.textContent = 'Audience and asset matrices are calculated directly from the raw lead file. The top assigned asset is ' +
+      PRA.top_asset_name + ' with ' + praNumber(PRA.top_asset_count) + ' leads.';
+  }
+}
+
+function praUpdateAssetSlide(slideId, metricValue, metricLabel, noteText, tableMode) {
+  const s = document.getElementById(slideId);
+  if (!s) return;
+  const value = s.querySelector('.asset-hero .value');
+  const note = s.querySelector('.asset-hero .note');
+  if (value) value.textContent = praNumber(metricValue);
+  if (note) {
+    if ((slideId === 's8' || slideId === 's9') && !noteText) {
+      note.remove();
+    } else {
+      note.textContent = noteText;
+    }
+  }
+
+  if (slideId === 's8' || slideId === 's9' || slideId === 's10') {
+    const layout = s.querySelector('.asset-split-layout');
+    const legendPanel = s.querySelector('.asset-legend-panel');
+    if (legendPanel) legendPanel.remove();
+    if (layout) layout.style.gridTemplateColumns = '175px minmax(0, 1fr)';
+  }
+
+  const tbody = s.querySelector('table tbody');
+  if (tbody) {
+    const source = tableMode === 'open' ? PRA.asset_open_values :
+                  tableMode === 'click' ? PRA.asset_click_values :
+                  PRA.asset_conv_values;
+    tbody.innerHTML = PRA.asset_labels.slice(0, source.length).map((name,i) => {
+      const share = metricValue ? (source[i] / metricValue * 100) : 0;
+      const valueLabel = Number(source[i] || 0).toLocaleString('en-US');
+      return '<tr><td>' + name + '</td><td>' + valueLabel + '</td><td>' + share.toFixed(2) + '%</td></tr>';
+    }).join('');
+  }
+
+  const callout = s.querySelector('.callout');
+  if (callout) callout.textContent = PRA.asset_event_note;
+}
+
+function praUpdateSlide11() {
+  const s = document.getElementById('s11');
+  if (!s) return;
+  const cards = s.querySelectorAll('.stats-card');
+  const values = [PRA.sent, PRA.delivered, PRA.opens, PRA.clicks, PRA.conversion, PRA.bounced];
+  const notes = ['', praPct(PRA.delivery_rate), praPct(PRA.open_rate), praPct(PRA.click_rate), praPct(PRA.conversion_rate), praPct(PRA.bounce_rate)];
+
+  cards.forEach((card, i) => {
+    const value = card.querySelector('.value');
+    const note = card.querySelector('.note');
+    if (value) value.textContent = praNumber(values[i]);
+    if (note && i > 0) note.textContent = notes[i];
+  });
+
+  const readout = s.querySelector('.exec-readout .callout');
+  if (readout) {
+    readout.textContent =
+      'Delivery rate is ' + praPct(PRA.delivery_rate) +
+      ', while the campaign generated ' + praNumber(PRA.opens) +
+      ' opens, ' + praNumber(PRA.clicks) +
+      ' clicks and ' + praNumber(PRA.conversion) +
+      ' conversions from ' + praNumber(PRA.sent) + ' sends.';
+  }
+}
+
+function praUpdateSlide12() {
+  const s = document.getElementById('s12');
+  if (!s) return;
+
+  const list = s.querySelector('.observation-list');
+  if (list) list.innerHTML = PRA.observations.map(x => '<li>' + x + '</li>').join('');
+
+  const callouts = s.querySelectorAll('.panel:nth-of-type(2) .callout');
+  PRA.recommendations.forEach((text, i) => {
+    if (callouts[i]) callouts[i].textContent = text;
+  });
+}
+
+function praUpdateCharts() {
+  praRebuildChart('jobLevel', 'bar',
+    PRA.job_labels,
+    PRA.job_values,
+    {bg:['#f28a3d','#4e7fd8','#12e7d4','#18a878','#7c5ce5'], indexAxis:'x'}
+  );
+
+  praRebuildChart('jobSplit', 'bar',
+    PRA.job_split_labels,
+    PRA.job_split_values.map(v => PRA.lead_count ? (v/PRA.lead_count*100) : 0),
+    {bg:['#12e7d4','#8d6de7','#f28a3d','#4e7fd8'], indexAxis:'y', percent:true}
+  );
+
+  praRebuildChart('jobFunctions', 'line',
+    PRA.func_labels,
+    PRA.func_values.map(v => PRA.lead_count ? (v/PRA.lead_count*100) : 0),
+    {border:'#f47b20', bg:'rgba(244,123,32,.12)', borderWidth:3, fill:true, percent:true}
+  );
+
+  praRebuildChart('industries', 'bar',
+    PRA.industry_labels,
+    PRA.industry_values.map(v => PRA.lead_count ? (v/PRA.lead_count*100) : 0),
+    {bg:['#4e7fd8','#f28a3d','#12a8b8','#18a878','#7c5ce5','#e66aa4'], indexAxis:'y', percent:true}
+  );
+
+  praRebuildChart('employeeSize', 'bar',
+    PRA.size_labels,
+    PRA.size_values.map(v => PRA.lead_count ? (v/PRA.lead_count*100) : 0),
+    {bg:'#f28a3d', percent:true}
+  );
+
+  const deviceTotal = PRA.device_values.reduce((sum, value) => sum + Number(value || 0), 0) || 1;
+  const deviceShares = PRA.device_values.map(value => Number(value || 0) / deviceTotal * 100);
+  praRebuildChart('devices', 'bar', PRA.device_labels, deviceShares,
+    {bg:['#12a8b8','#f47b20','#4e7fd8','#18a878','#7c5ce5','#e66aa4'],indexAxis:'y',percent:true});
+
+  praRebuildChart('assetSplit', 'doughnut',
+    PRA.asset_labels.slice(0,6),
+    PRA.asset_values.slice(0,6),
+    {bg:['#4e7fd8','#f28a3d','#12a8b8','#18a878','#7c5ce5','#e66aa4'], legend:true, percent:true}
+  );
+
+  // Asset industry matrix
+  const industryDatasets = PRA.industry_labels.slice(0,6).map((industry, i) => ({
+    label: industry,
+    data: PRA.asset_names.map((_, a) => PRA.asset_industry_matrix?.[a]?.[i] || 0),
+    backgroundColor: PRA_PAL[i % PRA_PAL.length]
+  }));
+  praRebuildGroupedChart('assetIndustry', PRA.asset_names, industryDatasets, {legend:true});
+
+  // Asset x employee size
+  const sizeDatasets = PRA.asset_names.map((asset, i) => ({
+    label: asset,
+    data: PRA.asset_size_matrix[i] || [],
+    backgroundColor: i === 0 ? '#3f5bd8' : '#f47b20'
+  }));
+  praRebuildGroupedChart('assetSize', PRA.size_names, sizeDatasets, {legend:true});
+
+  // Asset x job level
+  const jobDatasets = PRA.asset_names.map((asset, i) => ({
+    label: asset,
+    data: PRA.asset_job_matrix[i] || [],
+    backgroundColor: PRA_PAL[i % PRA_PAL.length]
+  }));
+  praRebuildGroupedChart('assetJob', PRA.job_names, jobDatasets, {legend:true,indexAxis:'y'});
+
+  praRebuildChart('openChart', 'bar',
+    PRA.asset_open_labels,
+    PRA.asset_open_values,
+    {bg:['#4e7fd8','#f28a3d','#12a8b8','#18a878','#7c5ce5','#e66aa4'], indexAxis:'y'}
+  );
+
+  praRebuildChart('clickChart', 'bar',
+    PRA.asset_click_labels,
+    PRA.asset_click_values,
+    {bg:['#4e7fd8','#f28a3d','#12a8b8','#18a878','#7c5ce5','#e66aa4'], indexAxis:'y'}
+  );
+
+  praRebuildChart('conversionChart', 'bar',
+    PRA.asset_conv_labels,
+    PRA.asset_conv_values,
+    {bg:['#4e7fd8','#f28a3d','#12a8b8','#18a878','#7c5ce5','#e66aa4'], indexAxis:'y'}
+  );
+
+  praRebuildChart('statsChart', 'bar',
+    ['Delivered','Open','Clicks','Conversion','Bounce'],
+    [PRA.delivery_rate || 0, PRA.open_rate || 0, PRA.click_rate || 0, PRA.conversion_rate || 0, PRA.bounce_rate || 0],
+    {bg:['#12e7d4','#4e7fd8','#f28a3d','#69d86e','#8d6de7'], indexAxis:'y', percent:true}
+  );
+}
+
+function praUpdateSlide8to10() {
+  // Open
+  praUpdateAssetSlide(
+    's8',
+    PRA.opens,
+    'Total Open Count',
+    '',
+    'open'
+  );
+
+  // Click
+  praUpdateAssetSlide(
+    's9',
+    PRA.clicks,
+    'Total Click Count',
+    '',
+    'click'
+  );
+
+  // Conversion
+  praUpdateAssetSlide(
+    's10',
+    PRA.conversion,
+    'Total Conversion Count',
+    PRA.asset_conv_values.slice(0,2).join(' + ') + ' conversions',
+    'conversion'
+  );
+}
+
+function praApplyAll() {
+  praUpdateTopbarAndCover();
+  praUpdateSlide3();
+  praUpdateSlide4();
+  praUpdateSlide5();
+  praUpdateSlide6();
+  praUpdateSlide7();
+  praUpdateSlide8to10();
+  praUpdateSlide11();
+
+  // Observations/recommendations use safe HTML strings generated by Python.
+  const obs = document.querySelector('#s12 .observation-list');
+  if (obs) obs.innerHTML = PRA.observations.map(x => '<li>' + x + '</li>').join('');
+
+  const recs = document.querySelectorAll('#s12 .panel');
+  const recPanel = [...recs].find(p => p.querySelector('.section')?.textContent.trim() === 'Recommendations');
+  if (recPanel) {
+    const c = recPanel.querySelectorAll('.callout');
+    PRA.recommendations.forEach((r,i)=>{ if(c[i]) c[i].innerHTML = r; });
+  }
+
+  // Rebuild charts after the existing template charts.
+  setTimeout(() => {
+    praUpdateChartsDataOnly();
+  }, 0);
+}
+
+function praUpdateChartsDataOnly() {
+  // Add calculated matrix data which is generated in Python.
+  PRA.asset_industry_matrix = [[9, 6, 3, 4, 4, 3], [8, 6, 2, 3, 2, 1], [9, 4, 1, 2, 1, 1], [4, 6, 3, 0, 1, 0], [3, 1, 2, 0, 1, 1]];
+  praUpdateChartsWithMatrices();
+}
+
+function praUpdateChartsWithMatrices() {
+  // Re-run the same chart generation function but with matrix data available.
+  praUpdateCharts();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  praApplyAll();
+});
+</script>
+<script>
+// PRA-EXTRA: count + percentage labels, Google Maps location slide, decision-maker mix
+var PRA_PAL=['#4e7fd8','#f28a3d','#12a8b8','#18a878','#7c5ce5','#e66aa4'];
+if(typeof PRA!=='undefined'&&PRA.palette&&PRA.palette.length>=2)PRA_PAL=PRA.palette.slice();
+function praC(i){return PRA_PAL[i%PRA_PAL.length];}
+function praFmtN(n){return Number(n||0).toLocaleString('en-US');}
+function praEsc(t){return String(t).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+
+/* ---------------- Chart style: 2D / 3D ---------------- */
+var PRA_MODE=(function(){try{return localStorage.getItem('praChartMode')||'3d';}catch(e){return '3d';}})();
+var PRA_DEPTH=9;
+function praIs3D(){return PRA_MODE==='3d';}
+function praShade(c,f){var m=/^#([0-9a-f]{6})$/i.exec(c||'');if(!m)return c;var n=parseInt(m[1],16),r=n>>16,g=(n>>8)&255,b=n&255;
+  var t=function(v){return Math.round(f<0?v*(1+f):v+(255-v)*f);};return 'rgb('+t(r)+','+t(g)+','+t(b)+')';}
+function praColorAt(ds,i){var c=ds.praColors||ds.hoverBackgroundColor||ds.backgroundColor;return Array.isArray(c)?c[i%c.length]:c;}
+function praDepthOf(chart,el){var horiz=chart.options.indexAxis==='y';var s=horiz?el.height:el.width;return Math.max(3,Math.min(PRA_DEPTH,(s||20)*0.35));}
+
+if (typeof Chart !== 'undefined') {
+  // 3D extrusion: side/top faces for bars, a raised base for doughnuts. Drawn before the front faces.
+  Chart.register({id:'praDepth', beforeDatasetsDraw:function(chart){
+    if(!praIs3D())return; var ctx=chart.ctx, t=chart.config.type;
+    ctx.save();
+    chart.data.datasets.forEach(function(ds,di){
+      var meta=chart.getDatasetMeta(di); if(meta.hidden)return;
+      meta.data.forEach(function(el,i){
+        var col=praColorAt(ds,i); if(typeof col!=='string')return;
+        if(t==='doughnut'||t==='pie'){
+          if(!chart.getDataVisibility(i))return;
+          var D=PRA_DEPTH; ctx.fillStyle=praShade(col,-0.35);
+          for(var k=D;k>=1;k--){ctx.beginPath();ctx.arc(el.x,el.y+k,el.outerRadius,el.startAngle,el.endAngle);
+            ctx.arc(el.x,el.y+k,el.innerRadius,el.endAngle,el.startAngle,true);ctx.closePath();ctx.fill();}
+          return;
+        }
+        if(t!=='bar')return;
+        var horiz=chart.options.indexAxis==='y', d=praDepthOf(chart,el);
+        var L,R,T,B;
+        if(horiz){L=Math.min(el.x,el.base);R=Math.max(el.x,el.base);T=el.y-el.height/2;B=el.y+el.height/2;}
+        else{L=el.x-el.width/2;R=el.x+el.width/2;T=Math.min(el.y,el.base);B=Math.max(el.y,el.base);}
+        if(!(R-L>0.5)||!(B-T>0.5))return;
+        ctx.fillStyle=praShade(col,0.35);
+        ctx.beginPath();ctx.moveTo(L,T);ctx.lineTo(L+d,T-d);ctx.lineTo(R+d,T-d);ctx.lineTo(R,T);ctx.closePath();ctx.fill();
+        ctx.fillStyle=praShade(col,-0.3);
+        ctx.beginPath();ctx.moveTo(R,T);ctx.lineTo(R+d,T-d);ctx.lineTo(R+d,B-d);ctx.lineTo(R,B);ctx.closePath();ctx.fill();
+      });
+    });
+    ctx.restore();
+  }});
+
+  // Count + percentage labels that never overlap: one line, two lines, count only, or hidden (tooltip still works).
+  Chart.register({id:'praLabels', afterDatasetsDraw:function(chart){
+    var o=chart.options.plugins&&chart.options.plugins.praLabels; if(!o)return;
+    var ctx=chart.ctx, horiz=chart.options.indexAxis==='y', t=chart.config.type, d3=praIs3D();
+    ctx.save(); ctx.textBaseline='middle';
+    chart.data.datasets.forEach(function(ds,di){
+      var meta=chart.getDatasetMeta(di); if(meta.hidden)return;
+      var sum=(ds.data||[]).reduce(function(a,b){return a+Number(b||0);},0);
+      meta.data.forEach(function(el,i){
+        var c,p;
+        if(o.grouped){c=Number(ds.data[i]||0); if(!c)return; p=sum?c/sum*100:0;}
+        else{c=o.counts[i]; if(c==null)return; p=o.pcts?o.pcts[i]:(o.total?c/o.total*100:0);}
+        if(t==='doughnut'){
+          if(!chart.getDataVisibility(i)||p<7)return; var pos=el.tooltipPosition(); ctx.fillStyle='#fff'; ctx.textAlign='center';
+          ctx.shadowColor='rgba(0,0,0,.35)'; ctx.shadowBlur=3;
+          ctx.font='bold 11px Arial'; ctx.fillText(p.toFixed(0)+'%',pos.x,pos.y-6);
+          ctx.font='10px Arial'; ctx.fillText(praFmtN(c),pos.x,pos.y+7); ctx.shadowBlur=0; return;
+        }
+        if(t==='line'){ctx.font='bold 10px Arial';ctx.fillStyle='#172033';ctx.textAlign='center';ctx.fillText(praFmtN(c)+' ('+p.toFixed(1)+'%)',el.x,el.y-12);return;}
+        var dep=d3?praDepthOf(chart,el):0, full=praFmtN(c)+' ('+p.toFixed(1)+'%)', cnt=praFmtN(c), pc=p.toFixed(1)+'%';
+        ctx.font='bold 10px Arial'; ctx.fillStyle='#172033';
+        if(horiz){ctx.textAlign='left'; ctx.fillText(o.grouped?cnt:full,el.x+6+dep,el.y-dep/2); return;}
+        ctx.textAlign='center';
+        var slot=o.grouped?el.width+4:el.width/0.72, x=el.x+dep/2, y=el.y-10-dep;
+        if(!o.grouped&&ctx.measureText(full).width<=slot-4){ctx.fillText(full,x,y);return;}
+        if(!o.grouped&&Math.max(ctx.measureText(cnt).width,ctx.measureText(pc).width)<=slot-2){
+          ctx.fillText(cnt,x,y-12); ctx.font='9px Arial'; ctx.fillStyle='#64748b'; ctx.fillText(pc,x,y); return;}
+        if(ctx.measureText(cnt).width<=slot)ctx.fillText(cnt,x,y);
+      });
+    });
+    ctx.restore();
+  }});
+}
+
+function praAlpha(c,a){var m=/^#([0-9a-f]{6})$/i.exec(c);if(!m)return c;var n=parseInt(m[1],16);return 'rgba('+(n>>16)+','+((n>>8)&255)+','+(n&255)+','+a+')';}
+function praGrad(colors,horiz){return function(c){var ch=c.chart,a=ch.chartArea;
+  var col=Array.isArray(colors)?colors[c.dataIndex%colors.length]:colors; if(!a||typeof col!=='string')return col;
+  if(praIs3D())return col;
+  var g=horiz?ch.ctx.createLinearGradient(a.left,0,a.right,0):ch.ctx.createLinearGradient(0,a.bottom,0,a.top);
+  g.addColorStop(0,praAlpha(col,0.45)); g.addColorStop(1,col); return g;};}
+var PRA_TIP={backgroundColor:'rgba(23,32,51,.92)',padding:10,cornerRadius:8,titleFont:{size:11,weight:'bold'},bodyFont:{size:11},displayColors:true,boxPadding:4};
+function praTrim(l,n){n=n||30;l=String(l);return l.length>n?l.slice(0,n-1)+'…':l;}
+// Wrap an axis label onto at most two lines so it is never clipped at the canvas edge.
+function praWrap(l,max){max=max||18;var words=String(l).split(/\s+/),lines=[''];
+  words.forEach(function(w){var cur=lines[lines.length-1];if(cur&&(cur+' '+w).length>max)lines.push(w);else lines[lines.length-1]=cur?cur+' '+w:w;});
+  if(lines.length>2){lines=[lines[0],lines.slice(1).join(' ')];}
+  return lines.map(function(x){return praTrim(x,max+2);});}
+
+// Chooses the chart form from the data: few parts of a whole -> doughnut, too many columns -> horizontal bars,
+// a 1-2 point line -> column chart.
+function praPickType(el,type,labels,options){
+  var n=labels.length, horiz=options.indexAxis==='y';
+  if(options.pie&&n>=2&&n<=options.pie)return {type:'doughnut',horiz:false};
+  if(type==='line'&&n<3)return {type:'bar',horiz:false};
+  if(type==='bar'&&!horiz){
+    var w=(el.parentElement&&el.parentElement.clientWidth)||0;
+    if(w?w/Math.max(n,1)<52:n>5)return {type:'bar',horiz:true};
+  }
+  return {type:type,horiz:horiz};
+}
+
+function praRebuildChart(canvasId,type,labels,values,options){
+  options=options||{};
+  var el=document.getElementById(canvasId); if(!el||typeof Chart==='undefined')return;
+  try{var old=Chart.getChart(el); if(old)old.destroy();}catch(e){}
+  var pick=praPickType(el,type,labels,options); type=pick.type;
+  var bg=options.bg||PRA_PAL, counts=options.counts||null, total=options.total||0;
+  var isDo=type==='doughnut', horiz=pick.horiz, d3=praIs3D();
+  if(isDo&&options.pieValues)values=options.pieValues;
+  if(isDo&&!Array.isArray(bg))bg=PRA_PAL;
+  var pctOf=function(i){return options.pcts?options.pcts[i]:(total?counts[i]/total*100:0);};
+  var lab=(isDo&&counts)?labels.map(function(l,i){return praTrim(l,20)+' · '+pctOf(i).toFixed(1)+'%';}):labels;
+  var catAxis={grid:{display:false},afterFit:function(sc){if(horiz)sc.width+=8;},ticks:{color:'#334155',font:{size:9},autoSkip:false,maxRotation:horiz?0:40,
+    callback:function(v){return horiz?praWrap(this.getLabelForValue(v),20):praWrap(this.getLabelForValue(v),labels.length<=3?24:14);}}};
+  var valAxis={beginAtZero:true,grid:{color:'#edf0f4'},border:{display:false},ticks:{color:'#64748b',font:{size:9},
+    callback:function(v){return options.percent?Number(v).toFixed(0)+'%':praFmtN(v);}}};
+  if(options.percent&&!isDo){var mx=Math.max.apply(null,values.concat([1]));valAxis.suggestedMax=Math.min(100,mx*1.15);}
+  var scales={}; if(!isDo){scales[horiz?'x':'y']=valAxis; scales[horiz?'y':'x']=catAxis;}
+  var lc=options.border||praC(1);
+  var lineFill=function(c){var a=c.chart.chartArea; if(!a)return praAlpha(lc,.14);
+    var g=c.chart.ctx.createLinearGradient(0,a.top,0,a.bottom); g.addColorStop(0,praAlpha(lc,.35)); g.addColorStop(1,praAlpha(lc,0)); return g;};
+  var dep=d3?PRA_DEPTH:0;
+  new Chart(el,{type:type,
+    data:{labels:lab,datasets:[{data:values,praColors:bg,
+      backgroundColor:type==='bar'?praGrad(bg,horiz):(type==='line'?lineFill:bg),hoverBackgroundColor:type==='bar'?bg:undefined,
+      borderColor:type==='line'?lc:(isDo?'#fff':bg),
+      borderWidth:type==='line'?3:(isDo?2:0),borderRadius:isDo?0:(d3?0:6),borderSkipped:false,maxBarThickness:44,
+      pointRadius:5,pointHoverRadius:7,pointBackgroundColor:'#fff',pointBorderColor:lc,pointBorderWidth:2,
+      tension:0.35,fill:type==='line',hoverOffset:isDo?10:0}]},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:horiz?'y':'x',cutout:isDo?(options.solidPie?'0%':'55%'):undefined,
+      animation:{duration:900,easing:'easeOutQuart'},
+      layout:{padding:isDo?{top:4,left:4,right:4,bottom:4+dep}:{right:horiz?96+dep:12+dep,top:horiz?4+dep:34+dep,left:10,bottom:4}},
+      plugins:{
+        legend:{display:isDo||!!options.legend,position:'bottom',
+          labels:{color:'#475569',font:{size:9},boxWidth:10,usePointStyle:true,pointStyle:'circle',padding:8}},
+        tooltip:Object.assign({},PRA_TIP,{callbacks:{label:function(c){var i=c.dataIndex;
+          if(counts){return ' '+labels[i]+': '+praFmtN(counts[i])+' ('+pctOf(i).toFixed(1)+'%)';}
+          return ' '+labels[i]+': '+c.raw+(options.percent?'%':'');}}}),
+        praLabels:counts?{counts:counts,total:total,pcts:isDo?null:(options.pcts||null)}:false
+      },
+      scales:scales}});
+  return {type:type,horiz:horiz};
+}
+
+function praRebuildGroupedChart(canvasId,labels,datasets,options){
+  options=options||{};
+  var el=document.getElementById(canvasId); if(!el||typeof Chart==='undefined')return;
+  try{var old=Chart.getChart(el); if(old)old.destroy();}catch(e){}
+  var horiz=options.indexAxis==='y', d3=praIs3D(), dep=d3?PRA_DEPTH:0;
+  datasets.forEach(function(d,i){var col=d.praColors||d.backgroundColor||PRA_PAL[i%6];
+    d.praColors=col; d.borderRadius=d3?0:5; d.borderSkipped=false; d.maxBarThickness=34;
+    d.hoverBackgroundColor=col; d.backgroundColor=praGrad(col,horiz);});
+  var scales={};
+  scales[horiz?'x':'y']={beginAtZero:true,grid:{color:'#edf0f4'},border:{display:false},ticks:{color:'#64748b',font:{size:9},precision:0}};
+  scales[horiz?'y':'x']={grid:{display:false},afterFit:function(sc){if(horiz)sc.width+=8;},ticks:{color:'#334155',font:{size:9},autoSkip:false,maxRotation:horiz?0:30,
+    callback:function(v){return horiz?praWrap(this.getLabelForValue(v),20):praWrap(this.getLabelForValue(v),14);}}};
+  new Chart(el,{type:'bar',data:{labels:labels,datasets:datasets},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:horiz?'y':'x',
+      animation:{duration:900,easing:'easeOutQuart'},
+      layout:{padding:{right:(horiz?44:8)+dep,top:(horiz?4:20)+dep}},
+      plugins:{legend:{display:!!options.legend,position:'bottom',
+          labels:{color:'#475569',font:{size:9},boxWidth:10,usePointStyle:true,pointStyle:'circle',
+            generateLabels:function(ch){return ch.data.datasets.map(function(ds,i){var c=Array.isArray(ds.praColors)?ds.praColors[0]:ds.praColors;
+              return {text:praTrim(ds.label,32),fillStyle:c,strokeStyle:c,pointStyle:'circle',hidden:!ch.isDatasetVisible(i),datasetIndex:i};});}}},
+        tooltip:Object.assign({},PRA_TIP,{callbacks:{label:function(c){
+          var tot=(c.dataset.data||[]).reduce(function(a,b){return a+Number(b||0);},0);
+          var p=tot?c.raw/tot*100:0;
+          return ' '+c.dataset.label+': '+praFmtN(c.raw)+' ('+p.toFixed(1)+'% of this series)';}}}),
+        praLabels:{grouped:true}},
+      scales:scales}});
+}
+
+function praUpdateCharts(){
+  var N=PRA.lead_count||1;
+  var sum=function(a){return a.reduce(function(x,y){return x+Number(y||0);},0);};
+  var pcts=function(a){return a.map(function(v){return +(v/N*100).toFixed(2);});};
+  praRebuildChart('jobLevel','bar',PRA.job_labels,PRA.job_values,{bg:PRA_PAL,counts:PRA.job_values,total:N});
+  // Job-level split is a part-of-whole view -> pie, so it differs from the Job Level columns.
+  praRebuildChart('jobSplit','bar',PRA.job_split_labels,pcts(PRA.job_split_values),{bg:PRA_PAL,indexAxis:'y',percent:true,
+    counts:PRA.job_split_values,total:N,pie:6,pieValues:PRA.job_split_values,solidPie:true});
+  praRebuildChart('jobFunctions','line',PRA.func_labels,pcts(PRA.func_values),{bg:PRA_PAL,percent:true,counts:PRA.func_values,total:N});
+  praRebuildChart('industries','bar',PRA.industry_labels,pcts(PRA.industry_values),{bg:PRA_PAL,indexAxis:'y',percent:true,counts:PRA.industry_values,total:N});
+  var sz=praRebuildChart('employeeSize','bar',PRA.size_labels,pcts(PRA.size_values),{bg:PRA_PAL,percent:true,counts:PRA.size_values,total:N});
+  var s4=document.getElementById('s4');
+  if(s4&&sz&&sz.horiz){praRenameSection(s4,'Employee Size — Column','Employee Size');}
+  var dt=sum(PRA.device_values)||1;
+  praRebuildChart('devices','bar',PRA.device_labels,PRA.device_values.map(function(v){return +(v/dt*100).toFixed(2);}),
+    {bg:[praC(2),praC(1),praC(0),praC(3)],indexAxis:'y',percent:true,counts:PRA.device_values,total:dt,pie:4,pieValues:PRA.device_values});
+  praRebuildChart('assetSplit','doughnut',PRA.asset_labels.slice(0,6),PRA.asset_values.slice(0,6),{bg:PRA_PAL,legend:true,counts:PRA.asset_values.slice(0,6),total:N});
+
+  var indDs=PRA.industry_labels.slice(0,2).map(function(ind,i){return {label:ind,
+    data:PRA.asset_names.map(function(_,a){return PRA.asset_industry_matrix?PRA.asset_industry_matrix[a][i]:0;}),
+    backgroundColor:praC(i)};});
+  praRebuildGroupedChart('assetIndustry',PRA.asset_names,indDs,{legend:true});
+  praRebuildGroupedChart('assetSize',PRA.size_names,PRA.asset_names.map(function(a,i){return {label:a,data:PRA.asset_size_matrix[i]||[],backgroundColor:PRA_PAL[i%6]};}),{legend:true});
+  praRebuildGroupedChart('assetJob',PRA.job_names,PRA.asset_names.map(function(a,i){return {label:a,data:PRA.asset_job_matrix[i]||[],backgroundColor:PRA_PAL[i%6]};}),{legend:true,indexAxis:'y'});
+
+  [['openChart',PRA.asset_open_labels,PRA.asset_open_values],['clickChart',PRA.asset_click_labels,PRA.asset_click_values],['conversionChart',PRA.asset_conv_labels,PRA.asset_conv_values]].forEach(function(x){
+    praRebuildChart(x[0],'bar',x[1],x[2],{bg:PRA_PAL,indexAxis:'y',counts:x[2],total:sum(x[2])||1});
+  });
+  var rates=[PRA.delivery_rate||0,PRA.open_rate||0,PRA.click_rate||0,PRA.conversion_rate||0,PRA.bounce_rate||0];
+  praRebuildChart('statsChart','bar',['Delivered','Open','Clicks','Conversion','Bounce'],rates,
+    {bg:[praC(2),praC(0),praC(1),praC(3),praC(4)],indexAxis:'y',percent:true,
+     counts:[PRA.delivered,PRA.opens,PRA.clicks,PRA.conversion,PRA.bounced],pcts:rates});
+  if(document.getElementById('praGeoChart'))praRenderGeoChart();
+}
+function praRenderGeoChart(){
+  praRebuildChart('praGeoChart','bar',PRA.country_labels,PRA.country_values,{bg:praC(1),indexAxis:'y',counts:PRA.country_values,total:PRA.geo_total||1});
+}
+
+/* 2D / 3D switch (floating, hidden when printing). */
+function praSetMode(m){PRA_MODE=m; try{localStorage.setItem('praChartMode',m);}catch(e){}
+  document.querySelectorAll('#praModeSwitch button').forEach(function(b){b.classList.toggle('on',b.dataset.mode===m);});
+  praUpdateCharts();}
+document.addEventListener('DOMContentLoaded',function(){
+  var st=document.createElement('style');
+  st.textContent='#praModeSwitch{position:fixed;left:18px;bottom:18px;z-index:9999;display:flex;gap:2px;padding:3px;border-radius:999px;'+
+    'background:#fff;box-shadow:0 6px 20px rgba(15,23,42,.18);border:1px solid #e2e8f0;font:600 12px Arial}'+
+    '#praModeSwitch span{padding:6px 8px 6px 10px;color:#64748b}'+
+    '#praModeSwitch button{border:0;background:transparent;padding:6px 12px;border-radius:999px;cursor:pointer;color:#334155;font:inherit}'+
+    '#praModeSwitch button.on{background:linear-gradient(90deg,#f47b20,#f59e0b);color:#fff}'+
+    '@media print{#praModeSwitch{display:none}}'+
+    '.grid>.panel,.grid>div{min-width:0}.chartbox{min-width:0;overflow:hidden}.chartbox canvas{max-width:100%}';
+  document.head.appendChild(st);
+  var sw=document.createElement('div'); sw.id='praModeSwitch';
+  sw.innerHTML='<span>Charts</span><button data-mode="2d">2D</button><button data-mode="3d">3D</button>';
+  sw.addEventListener('click',function(e){var b=e.target.closest('button'); if(b)praSetMode(b.dataset.mode);});
+  document.body.appendChild(sw);
+  sw.querySelectorAll('button').forEach(function(b){b.classList.toggle('on',b.dataset.mode===PRA_MODE);});
+});
+
+/* ---------------- Location slide: Google Maps ---------------- */
+var praGMap=null, praMarkerList={}, praInfoWin=null, praMapRequested=false, praBounds=null;
+function praS5Visible(){var s=document.getElementById('s5');return !!s&&!s.classList.contains('hidden');}
+
+function praFallbackMap(note){
+  var map=document.getElementById('geoMap'); if(!map)return;
+  var first=PRA.country_labels[0]||'World';
+  map.innerHTML='<div style="width:100%;height:200px"><canvas id="praGeoChart"></canvas></div>'+
+    '<iframe id="praGoogleMap" title="Google Maps country location" src="https://www.google.com/maps?q='+encodeURIComponent(first)+'&output=embed" '+
+    'style="width:100%;height:220px;border:0" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>'+
+    '<div style="font-size:10px;color:#64748b;padding:4px 8px">'+praEsc(note||'Free embedded Google map. Run with --google-maps-key to get the interactive bubble map.')+'</div>';
+  map.style.height='450px'; map.style.overflow='hidden';
+  praRenderGeoChart();
+}
+function praMapFail(msg){praGMap=null; praMapRequested=true; praFallbackMap(msg);}
+
+function praAddMarker(name,lat,lng,cnt,max){
+  var m=new google.maps.Marker({position:{lat:lat,lng:lng},map:praGMap,title:name+': '+cnt+' leads',
+    label:{text:String(cnt),color:'#fff',fontWeight:'700',fontSize:'12px'},
+    icon:{path:google.maps.SymbolPath.CIRCLE,scale:16+24*Math.sqrt(cnt/max),fillColor:'#f47b20',fillOpacity:0.85,strokeColor:'#fff',strokeWeight:2}});
+  m.addListener('click',function(){praFocusCountry(name);});
+  praMarkerList[name]={marker:m,count:cnt};
+  praBounds.extend({lat:lat,lng:lng});
+}
+function praFitAll(){
+  if(!praGMap||!praBounds||praBounds.isEmpty())return;
+  praGMap.fitBounds(praBounds,50);
+  google.maps.event.addListenerOnce(praGMap,'idle',function(){if(praGMap.getZoom()>5)praGMap.setZoom(4);});
+}
+function praBuildGoogleMap(){
+  var el=document.getElementById('praGMap'); if(!el||praGMap)return;
+  praGMap=new google.maps.Map(el,{center:{lat:30,lng:-20},zoom:2,minZoom:2,mapTypeControl:false,streetViewControl:false,
+    styles:[{featureType:'poi',stylers:[{visibility:'off'}]},{featureType:'road',stylers:[{visibility:'off'}]}]});
+  praInfoWin=new google.maps.InfoWindow(); praBounds=new google.maps.LatLngBounds();
+  var pts=(PRA.geo_spec&&PRA.geo_spec.points)?PRA.geo_spec.points:[];
+  var max=Math.max.apply(null,PRA.country_values.concat([1]));
+  var have={};
+  pts.forEach(function(p){have[p[0]]=1; praAddMarker(p[0],p[1],p[2],p[3],max);});
+  var geocoder=new google.maps.Geocoder();
+  PRA.country_labels.forEach(function(n,i){ if(have[n])return;
+    geocoder.geocode({address:n},function(r,st){ if(st==='OK'){var l=r[0].geometry.location; praAddMarker(n,l.lat(),l.lng(),PRA.country_values[i],max); praFitAll();}});});
+  praFitAll();
+}
+function praEnsureGoogleMap(){
+  if(!PRA.maps_key||!document.getElementById('praGMap'))return;
+  if(window.google&&google.maps&&google.maps.Map){
+    if(!praGMap)praBuildGoogleMap(); else {google.maps.event.trigger(praGMap,'resize'); praFitAll();}
+    return;
+  }
+  if(praMapRequested)return; praMapRequested=true;
+  window.gm_authFailure=function(){praMapFail('Google rejected the API key. Check that Maps JavaScript API is enabled, billing is active and the key allows this page. Showing the free embedded map instead.');};
+  window.praInitGoogleMap=function(){ if(praS5Visible())praBuildGoogleMap(); };
+  var sc=document.createElement('script');
+  sc.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(PRA.maps_key)+'&callback=praInitGoogleMap&v=weekly';
+  sc.async=true; sc.onerror=function(){praMapFail('Could not load Google Maps. Showing the free embedded map instead.');};
+  document.head.appendChild(sc);
+}
+function praFocusCountry(name){
+  var N=PRA.geo_total||1;
+  document.querySelectorAll('#s5 .geo-item').forEach(function(it){
+    var a=it.querySelector('a'); var on=a&&a.dataset.mapQuery===name;
+    it.style.background=on?'#fff4ea':''; it.style.borderLeftWidth=on?'6px':'';
+  });
+  var rec=praMarkerList[name];
+  if(praGMap&&rec){
+    praGMap.panTo(rec.marker.getPosition()); praGMap.setZoom(4);
+    praInfoWin.setContent('<div style="font:13px Arial"><b>'+praEsc(name)+'</b><br>'+praFmtN(rec.count)+' leads &middot; '+(rec.count/N*100).toFixed(1)+'%</div>');
+    praInfoWin.open(praGMap,rec.marker); return;
+  }
+  var f=document.getElementById('praGoogleMap');
+  if(f)f.src='https://www.google.com/maps?q='+encodeURIComponent(name)+'&output=embed';
+}
+
+function praUpdateSlide5(){
+  var s=document.getElementById('s5'); if(!s)return;
+  var names=PRA.country_labels, vals=PRA.country_values, N=PRA.geo_total||1, unique=names.length;
+  var mv=s.querySelector('.metric .value'); if(mv)mv.textContent=String(unique);
+  var ml=s.querySelector('.metric .label'); if(ml){var t=ml.lastChild; if(t&&t.nodeType===3)t.nodeValue='Unique Countries';}
+  var title=s.querySelector('.title');
+  if(title)title.textContent='Location Split \u00b7 '+(unique<=3?names.join(' \u00b7 '):names.slice(0,2).join(' \u00b7 ')+' +'+(unique-2)+' more');
+  var navItems=document.querySelectorAll('.slide-nav-item'); if(navItems[4]){var sm=navItems[4].querySelector('small'); if(sm)sm.textContent='Google Map';}
+  var geoList=s.querySelector('.geo-list');
+  if(geoList){geoList.innerHTML=PRA.geo_rows; geoList.style.maxHeight='230px'; geoList.style.overflowY='auto';
+    geoList.addEventListener('click',function(e){var a=e.target.closest('a[data-map-query]'); if(!a)return; e.preventDefault(); praFocusCountry(a.dataset.mapQuery);});}
+  var callout=s.querySelector('.callout');
+  if(callout){
+    var k=Math.min(5,unique), top=vals.slice(0,k).reduce(function(a,b){return a+b;},0);
+    callout.textContent=unique?('Top '+k+' location'+(k>1?'s':'')+' ('+names.slice(0,k).join(', ')+') account for '+praFmtN(top)+' of '+praFmtN(N)+' leads ('+(top/N*100).toFixed(1)+'%).'):'No geographic data is available in the raw lead file.';
+  }
+  var map=document.getElementById('geoMap');
+  if(map){
+    if(PRA.maps_key){
+      map.innerHTML='<div id="praGMap" style="width:100%;height:100%;border-radius:10px"></div>';
+      map.style.height='450px'; map.style.overflow='hidden';
+    } else { praFallbackMap(); }
+  }
+  try{window.geoInitialized=true;}catch(e){}
+  try{window.initMap=function(){return true;};}catch(e){}
+}
+
+/* ---------------- Decision-maker mix replaces the made-up device split ---------------- */
+function praRenameSection(root,oldT,newT){
+  root.querySelectorAll('.section').forEach(function(sec){
+    var c=sec.cloneNode(true); var ic=c.querySelector('.section-icon'); if(ic)ic.remove();
+    if(c.textContent.trim()!==oldT)return;
+    var nodes=[].filter.call(sec.childNodes,function(n){return n.nodeType===3;});
+    if(nodes.length)nodes[nodes.length-1].nodeValue=newT; else sec.appendChild(document.createTextNode(newT));
+  });
+}
+document.addEventListener('DOMContentLoaded',function(){
+  if(PRA.device_title==='Decision Maker Mix'){
+    var s4=document.getElementById('s4');
+    if(s4){
+      praRenameSection(s4,'Devices','Decision Makers vs Influencers');
+      praRenameSection(s4,'Device Mix','Decision Maker Mix');
+      var t=s4.querySelector('.title'); if(t)t.textContent='Industry, Company Size & Decision Maker Profile';
+    }
+    var nav=document.querySelectorAll('.slide-nav-item')[3]; if(nav){var b=nav.querySelector('b'); if(b)b.textContent='Industry, Decision Makers & Size';}
+  }
+  var s5=document.getElementById('s5');
+  if(s5){ new MutationObserver(function(){ if(praS5Visible())praEnsureGoogleMap(); }).observe(s5,{attributes:true,attributeFilter:['class']}); }
+});
+
+</script>
+
+</body>
+</html>
