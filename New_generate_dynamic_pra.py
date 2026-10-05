@@ -518,28 +518,123 @@ def build_summary_slide(summaries: list[dict[str, Any]], total: int) -> str:
         css + '<section class="slide hidden" id="s13"><div class="kicker">Lead Data Summary</div>'
         '<h2 class="title">Every Lead Field &middot; Count &amp; Percentage</h2>'
         '<div class="pra-cols">' + "".join(panels) + "</div>"
-        '<div class="footer">VALASYS MEDIA</div><div class="slideNo">13</div></section>'
+        '<div class="footer">VALASYS MEDIA</div></section>'
     )
 
 
-def add_summary_slide(html: str, summaries: list[dict[str, Any]], total: int) -> str:
-    """Adds slide 13 + nav entry + contents row. Existing slides are untouched."""
+def remove_summary_slide(html: str) -> str:
+    """Removes the optional all-lead-fields summary page and its references."""
     html = re.sub(r"<style>\s*#s13 .*?</style>\s*<section class=\"slide hidden\" id=\"s13\">.*?</section>\s*", "", html, flags=re.DOTALL)
     html = re.sub(r"<button class=\"slide-nav-item\" onclick=\"goToSlide\(12\)\">.*?</button>\s*", "", html, flags=re.DOTALL)
     html = re.sub(r"<div class=\"toc-row\"><span>08</span><b>Lead Data Summary</b><span>13</span></div>", "", html)
-    slide = build_summary_slide(summaries, total)
-    m = re.search(r'<section class="slide hidden" id="s12">.*?</section>', html, flags=re.DOTALL)
-    if m:
-        html = html[:m.end()] + "\n" + slide + html[m.end():]
-    nav = ('<button class="slide-nav-item" onclick="goToSlide(12)"><span class="thumb">13</span>'
-           '<span><b>Lead Data Summary</b><small>All fields</small></span></button>')
-    m = re.search(r'<button class="slide-nav-item"[^>]*goToSlide\(11\)[^>]*>.*?</button>', html, flags=re.DOTALL)
-    if m:
-        html = html[:m.end()] + nav + html[m.end():]
-    toc = '<div class="toc-row"><span>08</span><b>Lead Data Summary</b><span>13</span></div>'
-    html = re.sub(r'(<div class="toc-row"><span>07</span><b>Observations &amp; Recommendations</b><span>12</span></div>)', r"\1" + toc, html)
-    html = re.sub(r'(<div class="toc-row"><span>07</span><b>Observations & Recommendations</b><span>12</span></div>)', r"\1" + toc, html)
     return html
+
+
+def remove_single_asset_slides(html: str) -> str:
+  """Hides multi-asset comparison slides when the report has at most one asset."""
+  removed_indices = {5, 7, 8, 9}
+  removed_slide_ids = {6, 8, 9, 10}
+
+  html = re.sub(
+    r'<section\b(?=[^>]*\bid="s(?:6|8|9|10)")[^>]*>.*?</section>\s*',
+    "",
+    html,
+    flags=re.DOTALL,
+  )
+
+  def update_navigation(match: re.Match[str]) -> str:
+    button = match.group(0)
+    index_match = re.search(r'goToSlide\((\d+)\)', button)
+    if not index_match:
+      return button
+    old_index = int(index_match.group(1))
+    if old_index in removed_indices:
+      return ""
+    new_index = old_index - sum(index < old_index for index in removed_indices)
+    button = re.sub(r'goToSlide\(\d+\)', f"goToSlide({new_index})", button, count=1)
+    return re.sub(
+      r'(<span class="thumb">)\d+(</span>)',
+      rf"\g<1>{new_index + 1:02d}\g<2>",
+      button,
+      count=1,
+    )
+
+  html = re.sub(
+    r'<button class="slide-nav-item"[^>]*>.*?</button>\s*',
+    update_navigation,
+    html,
+    flags=re.DOTALL,
+  )
+
+  def renumber_slide(match: re.Match[str]) -> str:
+    slide_id = int(match.group(2))
+    contents = match.group(3)
+    new_number = slide_id - sum(removed_id < slide_id for removed_id in removed_slide_ids)
+    contents = re.sub(
+      r'(<div class="slideNo">)\d+(</div>)',
+      rf"\g<1>{new_number}\g<2>",
+      contents,
+      count=1,
+    )
+    return f'<section{match.group(1)}>{contents}</section>'
+
+  html = re.sub(
+    r'<section\b([^>]*\bid="s(\d+)"[^>]*)>(.*?)</section>',
+    renumber_slide,
+    html,
+    flags=re.DOTALL,
+  )
+
+  removed_toc_titles = {
+    "Asset-wise Open Split",
+    "Asset-wise Click Split",
+    "Asset-wise Conversion Split",
+  }
+
+  def rewrite_toc(match: re.Match[str]) -> str:
+    rows = re.findall(r'<div class="toc-row">.*?</div>', match.group(2), flags=re.DOTALL)
+    kept_rows = []
+    for row in rows:
+      title_match = re.search(r'<b>(.*?)</b>', row, flags=re.DOTALL)
+      title = title_match.group(1).strip() if title_match else ""
+      if title in removed_toc_titles:
+        continue
+      if title == "Asset Dashboard":
+        title, section_number, page_number = "Asset Engagement", "02", "6"
+      elif title == "Campaign Statistics":
+        section_number, page_number = "03", "7"
+      elif title == "Observations & Recommendations":
+        section_number, page_number = "04", "8"
+      else:
+        kept_rows.append(row)
+        continue
+
+      row = re.sub(r'<b>.*?</b>', f"<b>{title}</b>", row, count=1, flags=re.DOTALL)
+      span_index = 0
+      spans = list(re.finditer(r'<span>.*?</span>', row, flags=re.DOTALL))
+
+      def replace_toc_span(span_match: re.Match[str]) -> str:
+        nonlocal span_index
+        current = span_index
+        span_index += 1
+        if current == 0:
+          return f"<span>{section_number}</span>"
+        if current == len(spans) - 1:
+          return f"<span>{page_number}</span>"
+        return span_match.group(0)
+
+      row = re.sub(r'<span>.*?</span>', replace_toc_span, row, flags=re.DOTALL)
+      kept_rows.append(row)
+    return match.group(1) + "".join(kept_rows) + match.group(3)
+
+  html = re.sub(
+    r'(<div class="toc">)(.*?)(</div><div class="footer">)',
+    rewrite_toc,
+    html,
+    count=1,
+    flags=re.DOTALL,
+  )
+  return html
 
 
 # ============================================================
@@ -563,7 +658,11 @@ def prepare_data(df: pd.DataFrame, inputs: dict[str, Any]) -> dict[str, Any]:
     industries = top_counts(df, industry_col, 8)
     company_sizes = top_counts(df, company_size_col, 8)
     assets = top_counts(df, asset_col, 8)
-    unique_asset_count = int(series_clean(df, asset_col).replace("", pd.NA).nunique())
+    # Count distinct assets ignoring case/extra spaces and blank or placeholder cells,
+    # so "eBook" / "ebook " or "N/A" never make a single-asset file look multi-asset.
+    _asset_norm = series_clean(df, asset_col).str.lower().str.replace(r"\s+", " ", regex=True)
+    _asset_norm = _asset_norm[~_asset_norm.isin(["", "nan", "none", "null", "n/a", "na", "-", "--"])]
+    unique_asset_count = int(_asset_norm.nunique())
     decisions = top_counts(df, decision_col, 6)
     devices = top_counts(df, device_col, 6)
     device_mix_is_estimate = False
@@ -621,6 +720,8 @@ def prepare_data(df: pd.DataFrame, inputs: dict[str, Any]) -> dict[str, Any]:
         "company_sizes": company_sizes,
         "assets": assets,
         "unique_asset_count": unique_asset_count,
+        "unique_industry_count": int(series_clean(df, industry_col).replace("", pd.NA).nunique()),
+        "unique_country_count": len([c for c, _ in country_counts if c]),
         "decisions": decisions,
         "devices": devices,
         "device_mix_is_estimate": device_mix_is_estimate,
@@ -1052,6 +1153,7 @@ def js_dynamic_layer(data: dict[str, Any], df: pd.DataFrame, geo_spec: dict[str,
     industry_names = [x[0] for x in data["industries"][:6]]
     asset_names = [x[0] for x in top_assets]
     matrix = build_matrix(df, data["asset_col"], data["industry_col"], asset_names, industry_names)
+    _country_names = [c for c, _ in top_counts(df, find_column(df, ["Country", "Country Name"]), 6)]
 
     # Asset x employee size / job level datasets
     company_size_col = find_column(df, ["Company Size", "Employee Size", "Company Size Range"])
@@ -1156,10 +1258,26 @@ def js_dynamic_layer(data: dict[str, Any], df: pd.DataFrame, geo_spec: dict[str,
         if data["business_days"] is not None
         else "the supplied campaign period"
     )
+    lead_type_labels = [name for name, _ in data.get("lead_types", [])]
+    has_bant = any(re.search(r"\bBANT\b", name, flags=re.IGNORECASE) for name in lead_type_labels)
+    has_cs = any(re.search(r"\bCS\b", name, flags=re.IGNORECASE) for name in lead_type_labels)
+
+    if has_bant and has_cs:
+        engagement_observation = (
+            "BANT potential customers were engaged through telephonic calls and promotional emails; "
+            "CS potential customers were engaged through promotional emails."
+        )
+    elif has_bant:
+        engagement_observation = "Potential customers were engaged through telephonic calls and promotional emails."
+    elif has_cs:
+        engagement_observation = "Potential customers were engaged through promotional emails."
+    else:
+        engagement_observation = None
 
     # These observations intentionally use only measured lead-level / campaign inputs.
     observations = [
         f'Campaign generated {data["lead_count"]:,} leads in {duration_text}.',
+        *([engagement_observation] if engagement_observation else []),
         f'{esc(top_job_name)} is the largest job-level segment with {top_job_count:,} leads ({pct_text(pct(top_job_count, data["lead_count"]))}).',
         f'{esc(top_industry_name)} is the largest industry segment with {top_industry_count:,} leads ({pct_text(pct(top_industry_count, data["lead_count"]))}).',
         f'{esc(top_size_name)} is the largest company-size segment with {top_size_count:,} leads ({pct_text(pct(top_size_count, data["lead_count"]))}).',
@@ -1208,6 +1326,10 @@ def js_dynamic_layer(data: dict[str, Any], df: pd.DataFrame, geo_spec: dict[str,
         "asset_labels": json.loads(asset_labels),
         "asset_values": json.loads(asset_values),
         "unique_asset_count": data["unique_asset_count"],
+        "unique_industry_count": data["unique_industry_count"],
+        "unique_country_count": data["unique_country_count"],
+        "country_names": _country_names,
+        "asset_country_matrix": build_matrix(df, data["asset_col"], find_column(df, ["Country", "Country Name"]), asset_names, _country_names),
         "decision_labels": json.loads(decision_labels),
         "decision_values": json.loads(decision_values),
         "device_labels": json.loads(device_labels),
@@ -1852,6 +1974,557 @@ def apply_display_options(data: dict[str, Any], inputs: dict[str, Any]) -> None:
     data["palette"] = palette if len(palette) >= 2 else []
 
 
+# ---------------------------------------------------------------------------
+# Download-as-PDF / Download-as-PPT layer (runs in the browser, no server needed)
+# ---------------------------------------------------------------------------
+PDF_LAYER_START = "<!-- PRA-PDFLAYOUT-LAYER:START -->"
+PDF_LAYER_END = "<!-- PRA-PDFLAYOUT-LAYER:END -->"
+PDF_LAYER_CSS = r"""#praModeSwitch{display:none!important}
+.pdfx .slide .kicker{display:none}
+.pdfx #s1.slide .title{text-transform:uppercase;font-size:68px!important;letter-spacing:.01em;margin-bottom:14px!important}
+@media(max-width:760px){.pdfx #s1.slide .title{font-size:52px!important}}
+html[data-theme="dark"] .slide{background:linear-gradient(rgba(33,41,54,.93),rgba(27,35,47,.96)),repeating-linear-gradient(90deg,rgba(255,255,255,.04) 0 38px,transparent 38px 70px,rgba(255,255,255,.022) 70px 96px,transparent 96px 140px)!important;background-color:#222a36!important}
+html[data-theme="dark"] .cover{background:#222833!important}
+html[data-theme="dark"]{--trk:rgba(0,0,0,.32);--ink:#e6edf5}
+html[data-theme="light"]{--trk:rgba(23,32,51,.09);--ink:#334155}
+.pdf-grid{display:grid;gap:14px;margin-bottom:14px}
+.pdf-panel h4,.pdf-kpi h4{margin:0 0 8px;text-align:center;font-size:14px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink)}
+.pdf-kpi{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;min-height:200px}
+.pdf-kpi .ic{font-size:46px;line-height:1}
+.pdf-kpi .num{font:900 54px/1 "Courier New",monospace;color:#12e7d4;text-shadow:0 0 12px rgba(18,231,212,.5)}
+html[data-theme="light"] .pdf-kpi .num{color:#0e9aa7;text-shadow:none}
+.pdf-cv{position:relative;width:100%}
+.pdf-hbar{display:grid;grid-template-columns:130px 1fr 52px;align-items:center;gap:10px;margin:8px 0;font-size:12px;color:var(--ink);font-weight:700}
+.pdf-hbar span:first-child{text-align:right}
+.pdf-track{height:30px;background:var(--trk);border-radius:3px;overflow:hidden}
+.pdf-fill{height:100%;border-radius:0 14px 14px 0}
+.pdf-dev{display:flex;justify-content:space-around;align-items:center;height:100%;min-height:210px;text-align:center;color:var(--ink);font-weight:800}
+.pdf-dev .big{font:900 34px/1.1 "Courier New",monospace;color:#12e7d4;text-shadow:0 0 10px rgba(18,231,212,.45)}
+html[data-theme="light"] .pdf-dev .big{color:#0e9aa7;text-shadow:none}
+.pdf-dev .ic{font-size:64px}
+.pdf-stats{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px}
+.pdf-stat{text-align:center;color:var(--ink)}.pdf-stat .ic{font-size:30px}.pdf-stat b{display:block;font-size:30px}.pdf-stat small{font-size:12px;font-weight:800;letter-spacing:.05em}
+.pdf-obs{margin:0;padding:6px 10px;list-style:none;color:var(--ink);font-size:14px;line-height:1.75}
+.pdf-obs li{padding-left:22px;position:relative;margin-bottom:6px}.pdf-obs li:before{content:"\27A2";position:absolute;left:0;color:#f47b20}
+.pdf-thanks{flex:1;display:flex;align-items:center;justify-content:center;font-size:56px;font-weight:900;color:var(--ink)}
+.pdf-offices{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;color:var(--ink);font-size:12px;line-height:1.6;padding:0 40px 40px}
+.pdf-offices b{display:block;font-size:13px}
+#geoMap{height:300px!important}
+.pdf-svg{color:var(--ink)}
+.pdf-leg{display:flex;flex-wrap:wrap;gap:6px 16px;justify-content:center;margin-top:8px;font-size:11px;font-weight:700;color:var(--ink)}
+.pdf-leg i{display:inline-block;width:10px;height:10px;margin-right:6px;vertical-align:-1px}
+.pdf-panel{display:flex;flex-direction:column}.pdf-panel>.pdf-svg{margin:auto 0}
+"""
+PDF_LAYER_JS = r"""(function () {
+  'use strict';
+  function build() {
+    var P = (typeof PRA !== 'undefined') ? PRA : window.PRA; if (!P) return;
+    var COL = (P.palette && P.palette.length) ? P.palette : ['#4472c4', '#ed7d31', '#a5a5a5', '#ffc000', '#5b9bd5', '#70ad47', '#9e480e', '#7c5ce5'];
+    var $ = function (id) { return document.getElementById(id); };
+    var sum = function (a) { return a.reduce(function (x, y) { return x + (+y || 0); }, 0); };
+    var pc = function (v, t, d) { return t ? (v / t * 100).toFixed(d == null ? 0 : d) : '0'; };
+    var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+    var FONT = 'Calibri, Segoe UI, Arial, sans-serif', uid = 0;
+    try { if (window.Chart && Chart.instances) Object.values(Chart.instances).forEach(function (c) { try { c.destroy(); } catch (e) {} }); } catch (e) {}
+    document.documentElement.classList.add('pdfx');
+
+    /* ---------- tiny SVG chart kit (no external libraries) ---------- */
+    function svg(w, h, inner) { return '<svg class="pdf-svg" viewBox="0 0 ' + w + ' ' + h + '" width="100%" style="display:block;max-height:' + h + 'px" xmlns="http://www.w3.org/2000/svg" font-family="' + FONT + '">' + inner + '</svg>'; }
+    function T(x, y, t, o) { o = o || {}; return '<text x="' + x + '" y="' + y + '" text-anchor="' + (o.a || 'middle') + '" font-size="' + (o.s || 12) + '" font-weight="' + (o.w || 700) + '" fill="' + (o.c || 'currentColor') + '">' + esc(t) + '</text>'; }
+    function grad(id, c1, c2, vert) { return '<linearGradient id="' + id + '" x1="0" y1="' + (vert ? 1 : 0) + '" x2="' + (vert ? 0 : 1) + '" y2="0"><stop offset="0" stop-color="' + c1 + '"/><stop offset="1" stop-color="' + c2 + '"/></linearGradient>'; }
+    function wrap(t, n) {
+      t = String(t); if (t.length <= n) return [t];
+      var a = '', b = ''; t.split(' ').forEach(function (x) { if (!b && (a + ' ' + x).trim().length <= n) a = (a + ' ' + x).trim(); else b = (b + ' ' + x).trim(); });
+      if (b.length > n) b = b.slice(0, n - 1) + '\u2026';
+      return [a || t.slice(0, n), b].filter(Boolean);
+    }
+    function lines(x, y, t, n, o) { var ls = wrap(t, n), s = ''; ls.forEach(function (l, k) { s += T(x, y + (ls.length > 1 ? (k ? 7 : -6) : 4), l, o); }); return s; }
+    function legend(items) { return '<div class="pdf-leg">' + items.map(function (s) { return '<span><i style="background:' + s.color + '"></i>' + esc(s.name) + '</span>'; }).join('') + '</div>'; }
+
+    function vbar(labels, vals, o) {
+      o = o || {}; var W = o.w || 560, H = o.h || 210, n = labels.length || 1, pl = 10, pr = 10, pt = 26, pb = 40, id = 'g' + (++uid);
+      var max = Math.max.apply(null, vals.concat([1])), slot = (W - pl - pr) / n, bw = Math.min(o.bw || slot * .5, 70), inner = '', defs = o.grad ? grad(id, o.grad[0], o.grad[1], true) : '';
+      labels.forEach(function (l, i) {
+        var h = vals[i] / max * (H - pt - pb), x = pl + slot * i + (slot - bw) / 2, y = H - pb - h;
+        var f = o.colors ? o.colors[i] : (o.grad ? 'url(#' + id + ')' : (o.color || '#4472c4'));
+        inner += '<rect x="' + x + '" y="' + y + '" width="' + bw + '" height="' + Math.max(h, 1.5) + '" rx="2" fill="' + f + '"/>' + T(x + bw / 2, y - 7, o.fmt ? o.fmt(vals[i], i) : vals[i], { s: 12 });
+        wrap(l, slot < 120 ? 13 : 24).forEach(function (t, k) { inner += T(pl + slot * i + slot / 2, H - pb + 17 + k * 13, t, { s: 11 }); });
+      });
+      return svg(W, H, defs + inner + '<line x1="' + pl + '" x2="' + (W - pr) + '" y1="' + (H - pb) + '" y2="' + (H - pb) + '" stroke="rgba(160,174,192,.6)"/>');
+    }
+    function hbar(labels, vals, o) {
+      o = o || {}; var n = labels.length || 1, rowH = o.rowH || 40, lw = o.lw || 150, W = o.w || 620, pr = o.pr || 56, aw = W - lw - pr, H = n * rowH + (o.axis ? 28 : 6);
+      var max = o.max || Math.max.apply(null, vals.concat([1])), id = 'g' + (++uid), defs = o.grad ? grad(id, o.grad[0], o.grad[1]) : '', inner = '';
+      labels.forEach(function (l, i) {
+        var yc = i * rowH + rowH / 2 + 2, bh = Math.min(o.bh || 26, rowH - 8), w = Math.max(3, vals[i] / max * aw);
+        var f = o.outline ? 'rgba(68,114,196,.22)' : (o.colors ? o.colors[i] : (o.grad ? 'url(#' + id + ')' : (o.color || '#4472c4')));
+        inner += lines(lw - 10, yc, l, o.wrap || 26, { a: 'end', s: 11 }) +
+          '<rect x="' + lw + '" y="' + (yc - bh / 2) + '" width="' + w + '" height="' + bh + '" rx="2" fill="' + f + '"' + (o.outline ? ' stroke="#3b82f6" stroke-width="1.5"' : '') + '/>' +
+          (o.inside ? T(lw + w / 2, yc + 4, o.fmt ? o.fmt(vals[i], i) : vals[i], { c: '#fff', s: 13 }) : T(lw + w + 6, yc + 4, o.fmt ? o.fmt(vals[i], i) : vals[i], { a: 'start', s: 12 }));
+      });
+      if (o.axis) { inner += '<line x1="' + lw + '" x2="' + lw + '" y1="0" y2="' + (n * rowH) + '" stroke="rgba(160,174,192,.6)"/>'; [0, 20, 40, 60, 80, 100].forEach(function (t) { inner += T(lw + aw * t / 100, H - 6, t + '%', { s: 10, w: 600 }); }); }
+      return svg(W, H, defs + inner);
+    }
+    function clustered(labels, series, o) {
+      o = o || {}; var W = o.w || 560, H = o.h || 220, n = labels.length || 1, k = series.length || 1, pl = 10, pt = 24, pb = 40, slot = (W - 2 * pl) / n, gw = slot * .82, bw = Math.min(gw / k, 36), inner = '';
+      var max = Math.max.apply(null, [1].concat.apply([], series.map(function (s) { return s.data || []; })));
+      labels.forEach(function (l, i) {
+        var x0 = pl + slot * i + (slot - bw * k) / 2;
+        series.forEach(function (s, j) {
+          var v = (s.data || [])[i] || 0, h = v / max * (H - pt - pb), x = x0 + j * bw;
+          inner += '<rect x="' + x + '" y="' + (H - pb - h) + '" width="' + (bw - 2) + '" height="' + Math.max(h, v ? 1.5 : 0) + '" fill="' + s.color + '"/>' + (v ? T(x + bw / 2 - 1, H - pb - h - 6, v, { s: 11 }) : '');
+        });
+        wrap(l, slot < 110 ? 12 : 22).forEach(function (t, q) { inner += T(pl + slot * i + slot / 2, H - pb + 17 + q * 13, t, { s: 11 }); });
+      });
+      return svg(W, H, inner + '<line x1="' + pl + '" x2="' + (W - pl) + '" y1="' + (H - pb) + '" y2="' + (H - pb) + '" stroke="rgba(160,174,192,.6)"/>') + legend(series);
+    }
+    function stacked(rows, series, o) {
+      o = o || {}; var W = o.w || 680, rowH = 46, lw = 210, pr = 20, aw = W - lw - pr, H = rows.length * rowH + 6, inner = '';
+      var tots = rows.map(function (_, i) { return sum(series.map(function (s) { return s.data[i] || 0; })); }), max = Math.max.apply(null, tots.concat([1]));
+      rows.forEach(function (r, i) {
+        var yc = i * rowH + rowH / 2 + 2, x = lw; inner += lines(lw - 10, yc, r, 34, { a: 'end', s: 11 });
+        series.forEach(function (s) { var v = s.data[i] || 0; if (!v) return; var w = v / max * aw; inner += '<rect x="' + x + '" y="' + (yc - 14) + '" width="' + w + '" height="28" fill="' + s.color + '"/>' + (w > 14 ? T(x + w / 2, yc + 4, v, { c: '#fff', s: 12 }) : ''); x += w; });
+      });
+      return svg(W, H, inner) + legend(series);
+    }
+    function donut(p, color, text) {
+      var r = 62, c = 2 * Math.PI * r, d = Math.max(0, Math.min(100, p)) / 100 * c;
+      return svg(240, 230, '<ellipse cx="120" cy="206" rx="80" ry="10" fill="rgba(18,231,212,.45)"/><circle cx="120" cy="105" r="' + r + '" fill="none" stroke="rgba(160,174,192,.45)" stroke-width="34"/><circle cx="120" cy="105" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="34" stroke-dasharray="' + d + ' ' + (c - d) + '" transform="rotate(-90 120 105)"/>' + T(120, 112, text, { s: 20, w: 800 }));
+    }
+    function pie(labels, vals, colors) {
+      var W = 640, H = 300, cx = 320, cy = 125, r = 100, ry = .6, tot = sum(vals) || 1, a0 = -Math.PI / 2, slices = [], lab = '';
+      vals.forEach(function (v, i) {
+        var a1 = a0 + v / tot * 2 * Math.PI, large = (a1 - a0) > Math.PI ? 1 : 0, x1 = r * Math.cos(a0), y1 = r * Math.sin(a0), x2 = r * Math.cos(a1), y2 = r * Math.sin(a1);
+        slices.push({ d: v / tot >= .9999 ? 'M0,' + (-r) + ' A' + r + ',' + r + ' 0 1 1 0,' + r + ' A' + r + ',' + r + ' 0 1 1 0,' + (-r) + 'Z' : 'M0,0 L' + x1 + ',' + y1 + ' A' + r + ',' + r + ' 0 ' + large + ' 1 ' + x2 + ',' + y2 + 'Z', c: colors[i % colors.length] });
+        var m = (a0 + a1) / 2, lx = cx + Math.cos(m) * (r + 22), ly = cy + Math.sin(m) * r * ry + (Math.sin(m) > 0 ? 24 : 0) + Math.sin(m) * 18, an = Math.cos(m) >= 0 ? 'start' : 'end';
+        if (v) lab += T(lx, ly - 6, labels[i], { a: an, s: 11 }) + T(lx, ly + 8, pc(v, tot) + '%', { a: an, s: 11 });
+        a0 = a1;
+      });
+      var depth = slices.map(function (s) { return '<path d="' + s.d + '" fill="' + s.c + '"/><path d="' + s.d + '" fill="#000" fill-opacity=".38"/>'; }).join('');
+      var top = slices.map(function (s) { return '<path d="' + s.d + '" fill="' + s.c + '" stroke="rgba(255,255,255,.55)" stroke-width="1"/>'; }).join('');
+      return svg(W, H, '<g transform="translate(' + cx + ',' + (cy + 16) + ') scale(1,' + ry + ')">' + depth + '</g><g transform="translate(' + cx + ',' + cy + ') scale(1,' + ry + ')">' + top + '</g>' + lab);
+    }
+
+    /* ---------- page helpers ---------- */
+    var panel = function (h, body, st) { return '<div class="panel pdf-panel"' + (st ? ' style="' + st + '"' : '') + '>' + (h ? '<h4>' + h + '</h4>' : '') + body + '</div>'; };
+    var kpi = function (t, ic, v) { return '<div class="panel pdf-kpi"><h4>' + t + '</h4><div class="ic">' + ic + '</div><div class="num">' + v + '</div></div>'; };
+    var grid = function (cols, inner) { return '<div class="pdf-grid" style="grid-template-columns:' + cols + '">' + inner + '</div>'; };
+    function slide(id, title, body) {
+      var s = $(id); if (!s) return;
+      var n = (s.querySelector('.slideNo') || {}).textContent || '';
+      s.innerHTML = '<h2 class="title">' + title + '</h2>' + body + '<div class="footer">VALASYS MEDIA\u2122</div><div class="slideNo">' + n + '</div>';
+    }
+    function hrows(rows, grads) {
+      return rows.map(function (r, i) { var g = grads[i % grads.length];
+        return '<div class="pdf-hbar"><span>' + esc(r[0]) + '</span><div class="pdf-track"><div class="pdf-fill" style="width:' + Math.max(2, Math.min(100, r[1])) + '%;background:linear-gradient(90deg,' + g[0] + ',' + g[1] + ')"></div></div><span>' + r[2] + '</span></div>'; }).join('');
+    }
+    var sizeKey = function (l) { var m = String(l).replace(/,/g, '').match(/\d+/); return m ? +m[0] : 1e9; };
+    var order = function (names, fn) { return names.map(function (_, i) { return i; }).sort(function (a, b) { return fn(names[a], names[b], a, b); }); };
+    var acol = function (name) { var i = P.asset_names.indexOf(name); return COL[(i < 0 ? 0 : i) % COL.length]; };
+    var leads = P.lead_count || sum(P.job_values || []) || 1;
+
+    /* ---- Slide 3 ---- */
+    var ji = order(P.job_labels, function (a, b, i, j) { return P.job_values[i] - P.job_values[j]; });
+    var jl = ji.map(function (i) { return P.job_labels[i]; }), jv = ji.map(function (i) { return P.job_values[i]; }), jt = sum(jv) || 1;
+    var split = jl.map(function (l, i) { return [l, jv[i] / jt * 100, pc(jv[i], jt) + '%']; }).reverse();
+    var dm = 0;
+    if (P.decision_labels && P.decision_labels.length) { P.decision_labels.forEach(function (l, i) { if (/decision/i.test(l) && !/non|not/i.test(l)) dm += P.decision_values[i]; }); jt = sum(P.decision_values) || jt; }
+    else jl.forEach(function (l, i) { if (/c-?level|chief|\bc[a-z]o\b|vice|\bvp\b|president|director|head|owner|founder|decision/i.test(l)) dm += jv[i]; });
+    var dmP = jt ? dm / jt * 100 : 0, ft = sum(P.func_values) || 1;
+    slide('s3', 'Campaign Dashboard',
+      grid('1fr 2fr 2fr', kpi('Leads Generated', '\uD83C\uDFAF', leads) + panel('Job Level', vbar(jl, jv, { w: 520, h: 200, bw: 46, grad: ['#a8801f', '#b8f5c0'] })) + panel('Job Level Split', hrows(split, [['#a21caf', '#f0f'], ['#0284c7', '#22e5ff'], ['#f59e0b', '#fde047'], ['#ea580c', '#fbbf24']]))) +
+      grid('2fr 1.3fr 1.3fr', panel('Job Functions', hbar(P.func_labels, P.func_values.map(function (v) { return v / ft * 100; }), { w: 520, rowH: 70, bh: 56, lw: 130, pr: 20, max: 100, axis: true, inside: true, wrap: 16, color: '#4472c4', fmt: function (v) { return v.toFixed(2) + '%'; } })) + panel('Decision Makers', donut(dmP, '#12e7d4', dmP.toFixed(2) + '%')) + panel('Recommender', donut(100 - dmP, '#ff7a00', (100 - dmP).toFixed(2) + '%'))));
+
+    /* ---- Slide 4 ---- */
+    var ind = P.industry_labels.slice(0, 5), indv = P.industry_values.slice(0, 5);
+    var si = order(P.size_labels, function (a, b) { return sizeKey(b) - sizeKey(a); });
+    var sl = si.map(function (i) { return P.size_labels[i]; }), sv = si.map(function (i) { return P.size_values[i]; }), stt = sum(sv) || 1;
+    var di = P.device_labels.findIndex(function (l) { return /desk|laptop|pc/i.test(l); });
+    var d0 = di >= 0 ? di : 0, d1 = P.device_labels.length > 1 ? (d0 === 0 ? 1 : 0) : -1, dt = sum(P.device_values) || 1;
+    var devHtml = '<div class="pdf-dev"><div><div class="ic">' + (di >= 0 ? '\uD83D\uDDA5' : '\u25D0') + '</div><div class="big">' + pc(P.device_values[d0], dt, 1) + '%</div>' + esc(P.device_labels[d0] || '') + '</div>' +
+      (d1 >= 0 ? '<div><div class="ic">' + (di >= 0 ? '\uD83D\uDCF1' : '\u25D1') + '</div><div class="big">' + pc(P.device_values[d1], dt, 1) + '%</div>' + esc(P.device_labels[d1]) + '</div>' : '') + '</div>';
+    slide('s4', 'Campaign Dashboard',
+      grid('1fr 3fr', kpi('Unique Industries', '\uD83C\uDFED', P.unique_industry_count || P.industry_labels.length) + panel('Top 5 Industries', vbar(ind.map(function (l) { return l.toUpperCase(); }), indv, { w: 760, h: 210, bw: 34, color: '#4472c4', fmt: function (v) { return pc(v, leads) + '%'; } }))) +
+      grid('1.4fr 1fr', panel('Employee Size', hbar(sl, sv, { w: 560, rowH: 34, bh: 24, lw: 80, pr: 50, grad: ['#7c3aed', '#ff3d8b'], fmt: function (v) { return pc(v, stt) + '%'; } })) + panel(P.device_title || 'Devices', devHtml)));
+
+    /* ---- Slide 5 (keeps the Google map below) ---- */
+    var s5 = $('s5');
+    if (s5) {
+      var t5 = s5.querySelector('.title'); if (t5) t5.textContent = 'Campaign Dashboard';
+      var cl = P.country_labels.slice(0, 7), cvv = P.country_values.slice(0, 7), rest = (P.geo_total || sum(P.country_values)) - sum(cvv);
+      if (rest > 0) { cl.push('Others'); cvv.push(rest); }
+      var row = document.createElement('div');
+      row.innerHTML = grid('1fr 3fr', kpi('Unique Geo Locations', '\uD83D\uDCCD', P.unique_country_count || P.country_labels.length) + panel('Location Split', pie(cl, cvv, ['#70ad47', '#ffc000', '#ed7d31', '#4472c4', '#5b9bd5', '#a5a5a5', '#9e480e', '#7c5ce5'])));
+      if (t5) t5.after(row.firstChild);
+    }
+
+    /* ---- Slide 6 ---- */
+    var ai = order(P.asset_labels, function (a, b, i, j) { return P.asset_values[i] - P.asset_values[j]; }), at = sum(P.asset_values) || 1;
+    var seriesBy = function (mat) { return P.asset_names.map(function (a, i) { return { name: a, color: COL[i % COL.length], data: (mat && mat[i]) || [] }; }); };
+    slide('s6', 'Asset Dashboard',
+      grid('1fr 3fr', kpi('Unique Assets', '\uD83D\uDCF0', P.unique_asset_count) + panel('Asset Split', hbar(ai.map(function (i) { return P.asset_labels[i]; }).reverse(), ai.map(function (i) { return P.asset_values[i] / at * 100; }).reverse(), { w: 700, rowH: 44, lw: 260, wrap: 38, bh: 24, pr: 56, max: 100, colors: ai.map(function (i) { return acol(P.asset_labels[i]); }).reverse(), fmt: function (v) { return v.toFixed(1) + '%'; } }))) +
+      grid('1fr 1fr', panel('Asset Engagement by Top Industries', clustered(P.industry_names.slice(0, 5), seriesBy(P.asset_industry_matrix))) + panel('Asset Engagement by Country', clustered(P.country_names || [], seriesBy(P.asset_country_matrix)))));
+
+    /* ---- Slide 7 ---- */
+    var szI = order(P.size_names, function (a, b) { return sizeKey(a) - sizeKey(b); });
+    var sizeSeries = szI.map(function (j, k) { return { name: P.size_names[j], color: COL[k % COL.length], data: P.asset_names.map(function (_, a) { return (P.asset_size_matrix && P.asset_size_matrix[a]) ? P.asset_size_matrix[a][j] : 0; }) }; });
+    var jobSeries = P.job_names.map(function (n, j) { return { name: n, color: COL[j % COL.length], data: P.asset_names.map(function (_, a) { return (P.asset_job_matrix && P.asset_job_matrix[a]) ? P.asset_job_matrix[a][j] : 0; }) }; });
+    slide('s7', 'Asset Dashboard', panel('Asset Engagement by Employee Size', stacked(P.asset_names, sizeSeries)) + '<div style="height:14px"></div>' + panel('Asset Engagement by Job Level', stacked(P.asset_names, jobSeries)));
+
+    /* ---- Slides 8-10 ---- */
+    function splitSlide(id, title, word, labels, values) {
+      var t = sum(values) || 1;
+      slide(id, title, grid('1fr 3fr', kpi('Unique Assets', '\uD83D\uDCF0', P.unique_asset_count) + panel(word + ' Split', hbar(labels, values, { w: 700, rowH: 40, lw: 270, wrap: 40, bh: 22, pr: 50, outline: true }))) +
+        panel(word + ' Percentage', vbar(labels, values, { w: 900, h: 230, bw: 120, colors: labels.map(acol), fmt: function (v) { return pc(v, t) + '%'; } })));
+    }
+    splitSlide('s8', 'Asset Wise Open Split', 'Open', P.asset_open_labels, P.asset_open_values);
+    splitSlide('s9', 'Asset Wise Click Split', 'Click', P.asset_click_labels, P.asset_click_values);
+    splitSlide('s10', 'Asset Wise Conversion Split', 'Conversion', P.asset_conv_labels, P.asset_conv_values);
+
+    /* ---- Slide 11 ---- */
+    var st = [['\u2708\uFE0F', P.sent, 'SENT'], ['\uD83D\uDCEC', P.delivered, 'DELIVERED'], ['\u2709\uFE0F', P.opens, 'OPENS'], ['\uD83D\uDDB1\uFE0F', P.clicks, 'CLICKS'], ['\u2B07\uFE0F', P.conversion, 'CONVERSION'], ['\uD83D\uDEAB', P.bounced, 'BOUNCED']];
+    var rates = [['Bounce', P.bounce_rate], ['Conversion', P.conversion_rate], ['Clicks', P.click_rate], ['Open', P.open_rate], ['Delivered', P.delivery_rate]];
+    slide('s11', 'Campaign Statistics',
+      '<div class="panel"><div class="pdf-stats">' + st.map(function (x) { return '<div class="pdf-stat"><div class="ic">' + x[0] + '</div><b>' + Number(x[1] || 0).toLocaleString() + '</b><small>' + x[2] + '</small></div>'; }).join('') + '</div></div><div style="height:14px"></div>' +
+      panel('Statistics Split', rates.map(function (r) { return '<div class="pdf-hbar"><span>' + r[0] + '</span><div class="pdf-track"><div class="pdf-fill" style="width:' + Math.max(2, Math.min(100, r[1])) + '%;background:linear-gradient(90deg,#00b050,#fff200,#f59a23)"></div></div><span>' + Number(r[1]).toFixed(1) + '%</span></div>'; }).join('')));
+
+    /* ---- Slide 12 + Thank you ---- */
+    slide('s12', 'Observations &amp; Recommendations', panel('', '<ul class="pdf-obs">' + (P.observations || []).concat(P.recommendations || []).map(function (o) { return '<li>' + o + '</li>'; }).join('') + '</ul>'));
+    var deck = $('deckView');
+    if (deck && !$('s14')) {
+      var ty = document.createElement('section'); ty.className = 'slide hidden'; ty.id = 's14';
+      ty.innerHTML = '<div class="pdf-thanks">Thank You!</div><div class="pdf-offices">' +
+        '<div><b><span class="office-flag">🇺🇸</span> USA Office</b>111 Town Square Place, Suite 1203, Jersey City, NJ 07310<br><b>Ph.: +1 303-960-0264</b><br>255 S Orange Avenue, Suite 104 #2185, Orlando, FL 32801</div>' +
+        '<div><b><span class="office-flag">🇦🇪</span> Dubai Office</b>Unit No: 492, DMCC Business Centre, Level No 1, Jewellery &amp; Gemplex 3, Dubai - United Arab Emirates<br><b>Ph.: +971-544570526</b></div>' +
+        '<div><b><span class="office-flag">🇮🇳</span> India Office</b>801, 8th Floor, Cerebrum IT Park, B-3 Building, Kalyani Nagar, Pune - 411014</div></div>' +
+        '<div class="footer">VALASYS MEDIA\u2122</div>';
+      deck.appendChild(ty);
+      try { slides.push(ty); } catch (e) {}
+    }
+    try { update(); } catch (e) {}
+  }
+  function start() { setTimeout(function () { try { build(); } catch (e) { console.error('PDF layout failed', e); } }, 150); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();
+"""
+
+
+def pdf_layout_layer() -> str:
+    """Re-lays the dashboard slides out like the reference PDF (KPI tiles, bar/donut/pie/stacked charts)."""
+    return (
+        PDF_LAYER_START + "\n<style>" + PDF_LAYER_CSS + "</style>\n<script>" + PDF_LAYER_JS + "</script>\n"
+        + PDF_LAYER_END + "\n"
+    )
+
+
+THEME_LAYER_START = "<!-- PRA-THEME-LAYER:START -->"
+THEME_LAYER_END = "<!-- PRA-THEME-LAYER:END -->"
+
+THEME_LAYER_CSS = r""".pra-theme-btn{border:1px solid #dfe5ec;background:#fff;color:#344054;border-radius:10px;height:38px;padding:0 13px;font:800 11px Arial,sans-serif;letter-spacing:.04em;cursor:pointer;box-shadow:0 2px 7px rgba(16,24,40,.04);white-space:nowrap}
+.pra-theme-btn:hover{border-color:#f47b20;color:#f47b20}
+html[data-theme="dark"]{color-scheme:dark;--line:#2a3850;--white:#e6edf5;--muted:#9fb0c3}
+html[data-theme="dark"],html[data-theme="dark"] body{background:#0e1520!important;color:#e6edf5!important}
+html[data-theme="dark"] .toolbar{background:rgba(15,23,35,.98)!important;border-bottom:1px solid #243044!important;box-shadow:0 3px 16px rgba(0,0,0,.4)!important}
+html[data-theme="dark"] .brand-divider{background:#2a3850}
+html[data-theme="dark"] .meta-block{border-right-color:#2a3850}
+html[data-theme="dark"] .meta-icon{background:rgba(244,81,50,.16)}
+html[data-theme="dark"] .brand-copy h1,html[data-theme="dark"] .title,html[data-theme="dark"] .cover .title,html[data-theme="dark"] .cover .campaign,html[data-theme="dark"] .audience-stat b,html[data-theme="dark"] .section,html[data-theme="dark"] .meta-block b,html[data-theme="dark"] .brand h1{color:#f1f5f9!important}
+html[data-theme="dark"] .brand-copy p,html[data-theme="dark"] .subtitle,html[data-theme="dark"] .metric .label,html[data-theme="dark"] .metric .note,html[data-theme="dark"] .meta-block small,html[data-theme="dark"] .slide-indicator,html[data-theme="dark"] .cover .prepared,html[data-theme="dark"] .slideNo,html[data-theme="dark"] .toc-row span:last-child{color:#9fb0c3!important}
+html[data-theme="dark"] .slideNo{color:#fff!important}
+html[data-theme="dark"] .slide{background:linear-gradient(145deg,#182233 0%,#131c2a 76%,#1b1d29 100%)!important;border-color:#26334a!important;box-shadow:0 16px 48px rgba(0,0,0,.45)!important}
+html[data-theme="dark"] .cover{background:linear-gradient(135deg,#182233 0%,#131c2a 58%,#241d22 100%)!important}
+html[data-theme="dark"] .slide:before{border-color:rgba(244,123,32,.14)}
+html[data-theme="dark"] .panel{background:rgba(26,37,54,.92)!important;border-color:#2a3850!important;box-shadow:0 8px 22px rgba(0,0,0,.30)!important}
+html[data-theme="dark"] .callout{background:rgba(244,123,32,.10)!important;color:#d7dee8!important}
+html[data-theme="dark"] .table th{color:#9fb0c3!important}
+html[data-theme="dark"] .table td,html[data-theme="dark"] .observation-list{color:#d0d9e4!important}
+html[data-theme="dark"] .table th,html[data-theme="dark"] .table td{border-bottom-color:#263349!important}
+html[data-theme="dark"] .pill,html[data-theme="dark"] .geo-item{background:#1d2a3d!important;border-color:#2a3850!important;color:#c5d0de!important}
+html[data-theme="dark"] .toc-row{border-bottom-color:#263349!important}
+html[data-theme="dark"] .legend,html[data-theme="dark"] .legend.left-legend .legend-item{color:#c5d0de!important}
+html[data-theme="dark"] .stats-card .label{color:#c5d0de!important}
+html[data-theme="dark"] .stats-card .note{color:#9fb0c3!important}
+html[data-theme="dark"] .audience-stat small{color:#e6edf5!important}
+html[data-theme="dark"] .progress{background:#26334a}
+html[data-theme="dark"] .section .section-icon,html[data-theme="dark"] .stats-card .stat-icon{background:rgba(244,123,32,.16)!important;box-shadow:inset 0 0 0 1px rgba(244,123,32,.30)!important}
+html[data-theme="dark"] .icon-btn,html[data-theme="dark"] .nav-btn,html[data-theme="dark"] .btn,html[data-theme="dark"] .pra-theme-btn{background:#1d2a3d;border-color:#2a3850;color:#d0d9e4}
+html[data-theme="dark"] .icon-btn:hover,html[data-theme="dark"] .nav-btn:hover,html[data-theme="dark"] .pra-theme-btn:hover{border-color:#f47b20;color:#ff9a5a;background:#243349}
+html[data-theme="dark"] #geoMap,html[data-theme="dark"] .leaflet-container{background:#1b2a39!important;border-color:#2a3850!important}
+html[data-theme="dark"] [style*="color:#64748b"]{color:#9fb0c3!important}
+html[data-theme="dark"] [style*="color:#344054"],html[data-theme="dark"] [style*="color:#172033"]{color:#e6edf5!important}
+@media print{.pra-theme-btn{display:none!important}}
+"""
+
+THEME_LAYER_JS = r"""(function () {
+  'use strict';
+  var KEY = 'praTheme', root = document.documentElement;
+
+  function saved() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
+  function isDark() { return root.getAttribute('data-theme') === 'dark'; }
+
+  function themeCharts() {
+    if (!window.Chart) return;
+    var dark = isDark();
+    var tick = dark ? '#aab6c5' : '#64748b';
+    var grid = dark ? 'rgba(255,255,255,.09)' : '#edf0f4';
+    try { Chart.defaults.color = tick; } catch (e) {}
+    var list = [];
+    try { list = Chart.instances ? Object.values(Chart.instances) : []; } catch (e) {}
+    list.forEach(function (c) {
+      try {
+        var o = c.options || {};
+        Object.keys(o.scales || {}).forEach(function (k) {
+          var s = o.scales[k];
+          if (!s) return;
+          s.ticks = s.ticks || {}; s.ticks.color = tick;
+          s.grid = s.grid || {};
+          if (s.grid.display !== false) s.grid.color = grid;
+          if (s.title && s.title.display) s.title.color = tick;
+        });
+        if (o.plugins && o.plugins.legend && o.plugins.legend.labels) o.plugins.legend.labels.color = tick;
+        c.update('none');
+      } catch (e) {}
+    });
+  }
+
+  function label() { return isDark() ? '\u2600 Light' : '\u263E Dark'; }
+
+  function apply(theme, persist) {
+    if (theme === 'dark') root.setAttribute('data-theme', 'dark'); else root.setAttribute('data-theme', 'light');
+    if (persist) { try { localStorage.setItem(KEY, theme); } catch (e) {} }
+    var b = document.getElementById('praThemeBtn');
+    if (b) { b.textContent = label(); b.setAttribute('aria-pressed', String(isDark())); }
+    themeCharts();
+  }
+
+  function addButton() {
+    var host = document.querySelector('.report-meta');
+    if (!host || document.getElementById('praThemeBtn')) return;
+    var b = document.createElement('button');
+    b.id = 'praThemeBtn'; b.type = 'button'; b.className = 'pra-theme-btn';
+    b.title = 'Switch between light and dark mode';
+    b.textContent = label();
+    b.addEventListener('click', function () { apply(isDark() ? 'light' : 'dark', true); });
+    host.insertBefore(b, host.querySelector('.icon-btn') || null);
+  }
+
+  // Start in the saved theme (light by default).
+  apply(saved() === 'light' ? 'light' : 'dark', false);
+
+  function init() {
+    addButton();
+    apply(isDark() ? 'dark' : 'light', false);
+    // Charts are created at different moments by the template and the data layer, so re-theme a few times.
+    [400, 1200, 2800].forEach(function (ms) { setTimeout(themeCharts, ms); });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+  window.addEventListener('load', function () { setTimeout(themeCharts, 300); });
+  // Slide changes can reveal charts that were rebuilt after load.
+  document.addEventListener('click', function () { setTimeout(themeCharts, 150); });
+  document.addEventListener('keydown', function () { setTimeout(themeCharts, 150); });
+})();
+"""
+
+
+def theme_layer() -> str:
+    """Light / dark mode toggle. Light is the default; the choice is remembered in the browser."""
+    return (
+        THEME_LAYER_START + "\n"
+        "<style>" + THEME_LAYER_CSS + "</style>\n"
+        "<script>" + THEME_LAYER_JS + "</script>\n"
+        + THEME_LAYER_END + "\n"
+    )
+
+
+EXPORT_LAYER_START = "<!-- PRA-EXPORT-LAYER:START -->"
+EXPORT_LAYER_END = "<!-- PRA-EXPORT-LAYER:END -->"
+
+EXPORT_LAYER_JS = r"""(function () {
+  'use strict';
+  var PAGE_W = 1280, MIN_H = 720, SCALE = 2, busy = false;
+
+  function fileBase() {
+    var parts = (document.title || '').split('|');
+    var name = (parts[1] || 'Report').trim().replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    return 'PRA_' + (name || 'Report');
+  }
+
+  function addButtons() {
+    var host = document.querySelector('.report-meta');
+    if (!host || document.getElementById('praExportBtns')) return;
+    var wrap = document.createElement('div');
+    wrap.id = 'praExportBtns';
+    wrap.className = 'pra-export';
+    wrap.innerHTML =
+      '<button type="button" data-fmt="pdf" title="Download the whole report as a PDF">\u2B07 PDF</button>' +
+      '<button type="button" data-fmt="pptx" title="Download the whole report as a PowerPoint">\u2B07 PPT</button>';
+    var anchor = host.querySelector('.icon-btn');
+    host.insertBefore(wrap, anchor || null);
+    wrap.addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-fmt]');
+      if (b) exportReport(b.getAttribute('data-fmt'));
+    });
+  }
+
+  function overlay() {
+    var o = document.createElement('div');
+    o.id = 'praExportOverlay';
+    o.innerHTML = '<div class="pra-box"><div class="pra-spin"></div><b id="praExportMsg">Preparing\u2026</b>' +
+      '<small>Please keep this tab open. It takes about 20\u201340 seconds.</small></div>';
+    document.body.appendChild(o);
+    return o;
+  }
+
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  async function settle(el) {
+    try {
+      if (window.Chart && Chart.instances) {
+        Object.values(Chart.instances).forEach(function (c) {
+          if (c && c.canvas && el.contains(c.canvas)) {
+            c.options.animation = false; c.resize(); c.update('none');
+          }
+        });
+      }
+    } catch (e) {}
+    try {
+      if (window.Plotly) el.querySelectorAll('.js-plotly-plot').forEach(function (p) { Plotly.Plots.resize(p); });
+    } catch (e) {}
+    await wait(700);
+  }
+
+  function onClone(doc) {
+    // Cross-origin iframes (embedded Google map) cannot be rasterised, so show a clear placeholder instead of a blank box.
+    var ink = (getComputedStyle(document.documentElement).getPropertyValue('--ink') || '').trim() || '#e6edf5';
+    doc.querySelectorAll('svg.pdf-svg').forEach(function (s) { s.style.color = ink; });
+    doc.querySelectorAll('iframe').forEach(function (f) {
+      var d = doc.createElement('div');
+      d.style.cssText = 'display:flex;align-items:center;justify-content:center;width:100%;min-height:320px;' +
+        'background:#eef2f7;color:#64748b;font:600 13px Arial,sans-serif;text-align:center;border-radius:8px;padding:16px;';
+      d.textContent = 'Interactive map \u2013 open the HTML report to explore locations';
+      f.parentNode.replaceChild(d, f);
+    });
+  }
+
+  async function captureSlides(setMsg) {
+    var slides = Array.prototype.slice.call(document.querySelectorAll('#deckView .slide'));
+    var visible = slides.map(function (s) { return !s.classList.contains('hidden'); });
+    var scrollY = window.scrollY;
+    var out = [];
+    window.scrollTo(0, 0);
+    try {
+      for (var i = 0; i < slides.length; i++) {
+        setMsg('Capturing slide ' + (i + 1) + ' of ' + slides.length + '\u2026');
+        slides.forEach(function (s, k) { s.classList.toggle('hidden', k !== i); });
+        var el = slides[i], saved = el.style.cssText;
+        el.style.cssText += ';width:' + PAGE_W + 'px;max-width:none;margin:0;min-height:' + MIN_H + 'px;';
+        await settle(el);
+        var canvas = await html2canvas(el, {
+          scale: SCALE, useCORS: true, backgroundColor: document.documentElement.getAttribute('data-theme') === 'dark' ? '#131c2a' : '#ffffff', logging: false,
+          windowWidth: 1440, onclone: onClone
+        });
+        out.push({ data: canvas.toDataURL('image/jpeg', 0.92), w: canvas.width / SCALE, h: canvas.height / SCALE });
+        el.style.cssText = saved;
+      }
+    } finally {
+      slides.forEach(function (s, k) { s.classList.toggle('hidden', !visible[k]); s.style.removeProperty('width'); });
+      window.dispatchEvent(new Event('resize'));
+      window.scrollTo(0, scrollY);
+    }
+    return out;
+  }
+
+  function buildPdf(imgs, name) {
+    var JsPDF = window.jspdf.jsPDF;
+    var pdf = new JsPDF({ orientation: 'l', unit: 'px', format: [imgs[0].w, imgs[0].h], hotfixes: ['px_scaling'], compress: true });
+    imgs.forEach(function (im, i) {
+      if (i > 0) pdf.addPage([im.w, im.h], im.w >= im.h ? 'l' : 'p');
+      pdf.addImage(im.data, 'JPEG', 0, 0, im.w, im.h, undefined, 'FAST');
+    });
+    pdf.save(name + '.pdf');
+  }
+
+  function buildPptx(imgs, name) {
+    var pptx = new PptxGenJS();
+    pptx.layout = 'LAYOUT_WIDE'; // 13.33 x 7.5 in
+    pptx.title = (document.title || 'Program Analysis Report');
+    var BW = 13.333, BH = 7.5;
+    imgs.forEach(function (im) {
+      var s = pptx.addSlide();
+      s.background = { color: document.documentElement.getAttribute('data-theme') === 'dark' ? '131C2A' : 'FFFFFF' };
+      var r = Math.min(BW / im.w, BH / im.h), w = im.w * r, h = im.h * r;
+      s.addImage({ data: im.data, x: (BW - w) / 2, y: (BH - h) / 2, w: w, h: h });
+    });
+    return pptx.writeFile({ fileName: name + '.pptx' });
+  }
+
+  async function exportReport(fmt) {
+    if (busy) return;
+    if (!window.html2canvas || (fmt === 'pdf' && !window.jspdf) || (fmt === 'pptx' && !window.PptxGenJS)) {
+      alert('Export libraries could not be loaded. Please check your internet connection and reload the report.');
+      return;
+    }
+    busy = true;
+    var btns = document.querySelectorAll('#praExportBtns button');
+    btns.forEach(function (b) { b.disabled = true; });
+    var o = overlay(), msgEl = o.querySelector('#praExportMsg');
+    var setMsg = function (t) { msgEl.textContent = t; };
+    try {
+      var imgs = await captureSlides(setMsg);
+      setMsg(fmt === 'pdf' ? 'Building PDF\u2026' : 'Building PowerPoint\u2026');
+      await wait(50);
+      if (fmt === 'pdf') buildPdf(imgs, fileBase()); else await buildPptx(imgs, fileBase());
+    } catch (err) {
+      console.error(err);
+      alert('Could not create the ' + (fmt === 'pdf' ? 'PDF' : 'PowerPoint') + ': ' + (err && err.message ? err.message : err));
+    } finally {
+      o.remove();
+      btns.forEach(function (b) { b.disabled = false; });
+      busy = false;
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', addButtons); else addButtons();
+})();
+"""
+
+EXPORT_LAYER_CSS = """
+.topbar{gap:12px!important}
+.brand-large{flex:1 1 0!important;min-width:0!important}
+.brand-large .brand-logo{flex:0 0 auto;width:clamp(180px,22vw,320px)!important}
+.brand-copy{min-width:0!important;overflow:hidden}
+.brand-copy h1,.brand-copy p{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.report-meta{gap:10px!important}
+@media(max-width:1500px){.report-meta .meta-block:first-of-type{display:none}.pra-export button,.pra-theme-btn{padding-left:10px!important;padding-right:10px!important}}
+@media(max-width:1250px){.report-meta .meta-block{display:none}.brand-copy{display:none}}
+.pra-export{display:flex;gap:8px;align-items:center}
+.pra-export button{background:#f45132;color:#fff;border:0;border-radius:8px;padding:8px 13px;font:800 11px Arial,sans-serif;letter-spacing:.04em;cursor:pointer;box-shadow:0 4px 12px rgba(244,81,50,.25);white-space:nowrap}
+.pra-export button:nth-child(2){background:#3f5bd8;box-shadow:0 4px 12px rgba(63,91,216,.25)}
+.pra-export button:hover{filter:brightness(1.08)}
+.pra-export button:disabled{opacity:.55;cursor:wait}
+#praExportOverlay{position:fixed;inset:0;z-index:99999;background:rgba(23,32,51,.78);display:flex;align-items:center;justify-content:center;font-family:Arial,sans-serif}
+#praExportOverlay .pra-box{background:#fff;border-radius:14px;padding:26px 34px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.35);min-width:300px}
+#praExportOverlay b{display:block;color:#172033;font-size:15px;margin:12px 0 6px}
+#praExportOverlay small{color:#667085;font-size:11px}
+.pra-spin{width:34px;height:34px;margin:0 auto;border:4px solid #e4e9ef;border-top-color:#f45132;border-radius:50%;animation:praSpin .8s linear infinite}
+@keyframes praSpin{to{transform:rotate(360deg)}}
+@media print{.pra-export,#praExportOverlay{display:none!important}}
+"""
+
+
+def export_layer() -> str:
+    return (
+        EXPORT_LAYER_START + "\n"
+        "<style>" + EXPORT_LAYER_CSS + "</style>\n"
+        '<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>\n'
+        '<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>\n'
+        '<script src="https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js"></script>\n'
+        "<script>" + EXPORT_LAYER_JS + "</script>\n"
+        + EXPORT_LAYER_END + "\n"
+    )
+
+
+
 def build_report(template_path: Path, excel_path: Path, inputs: dict[str, Any],
                  output_dir: Path | None = None) -> Path:
     template = template_path.read_text(encoding="utf-8")
@@ -1873,6 +2546,27 @@ def build_report(template_path: Path, excel_path: Path, inputs: dict[str, Any],
       flags=re.DOTALL,
     )
 
+    # Drop any export layer left over from an earlier generated file (it is re-added below).
+    output_html = re.sub(
+        re.escape(EXPORT_LAYER_START) + r".*?" + re.escape(EXPORT_LAYER_END) + r"\s*",
+        "",
+        output_html,
+        flags=re.DOTALL,
+    )
+
+    output_html = re.sub(
+        re.escape(PDF_LAYER_START) + r".*?" + re.escape(PDF_LAYER_END) + r"\s*",
+        "",
+        output_html,
+        flags=re.DOTALL,
+    )
+    output_html = re.sub(
+        re.escape(THEME_LAYER_START) + r".*?" + re.escape(THEME_LAYER_END) + r"\s*",
+        "",
+        output_html,
+        flags=re.DOTALL,
+    )
+
     # Add Plotly CDN script + dynamic layer immediately before the final </body>.
     marker = "</body>"
     if marker not in output_html:
@@ -1880,11 +2574,13 @@ def build_report(template_path: Path, excel_path: Path, inputs: dict[str, Any],
 
     output_html = output_html.replace(
         marker,
-        dynamic_layer + "\n" + marker,
+        dynamic_layer + "\n" + theme_layer() + pdf_layout_layer() + export_layer() + marker,
         1
     )
 
-    output_html = add_summary_slide(output_html, column_summaries(df), len(df))
+    output_html = remove_summary_slide(output_html)
+    if data["unique_asset_count"] <= 1:
+      output_html = remove_single_asset_slides(output_html)
 
     if inputs.get("logo_data_uri"):
         logo = inputs["logo_data_uri"]

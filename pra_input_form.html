@@ -423,7 +423,7 @@
     upsert("funnel", "ch_funnel", {
       type: "bar",
       data: { labels: ["Sent", "Delivered", "Opens", "Clicks", "Conversion"],
-        datasets: [{ data: [m.sent, m.del, m.op, m.cl, m.cv].map(num), backgroundColor: [0, 1, 2, 3, 4].map(pick), borderRadius: 6 }] },
+      datasets: [{ data: [m.sent, m.del, m.op, m.cl, m.cv].map(num), backgroundColor: [0, 1, 2, 3, 4].map(pick), borderRadius: 6 }] },
       options: { indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true }, y: { grid: { display: false } } } }
     });
 
