@@ -82,6 +82,20 @@ def generate():
                 raise ValueError(f"{name.title()} must be a whole number >= 0.")
             inputs[name] = int(raw)
 
+        dev = {}
+        for key, label in (("desktop_pct", "Desktop %"), ("mobile_pct", "Mobile %")):
+            raw = form.get(key, "").replace("%", "").strip()
+            if raw:
+                if not raw.isdigit() or int(raw) > 100:
+                    raise ValueError(f"{label} must be a whole number from 0 to 100.")
+                dev[key] = int(raw)
+        if len(dev) == 1:  # one value given -> the other makes up the rest
+            only = next(iter(dev))
+            dev["mobile_pct" if only == "desktop_pct" else "desktop_pct"] = 100 - dev[only]
+        if dev and dev["desktop_pct"] + dev["mobile_pct"] != 100:
+            raise ValueError("Desktop % and Mobile % must add up to 100.")
+        inputs.update(dev)
+
         if inputs["delivered"] > inputs["sent"]:
             raise ValueError("Delivered cannot be greater than Sent.")
         if pd.to_datetime(inputs["end_date"]) < pd.to_datetime(inputs["start_date"]):

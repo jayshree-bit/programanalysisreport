@@ -145,6 +145,18 @@
             <input type="text" inputmode="numeric" class="form-control num" id="conversion" name="conversion" placeholder="0">
           </div>
         </div>
+        <h2 class="h6 text-uppercase text-secondary">Device usage <span class="text-lowercase fw-normal">(optional)</span></h2>
+        <div class="row g-3 mb-1">
+          <div class="col-6">
+            <label class="form-label" for="desktop_pct">Desktop %</label>
+            <input type="text" inputmode="numeric" class="form-control num" id="desktop_pct" name="desktop_pct" placeholder="e.g. 25">
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="mobile_pct">Mobile %</label>
+            <input type="text" inputmode="numeric" class="form-control num" id="mobile_pct" name="mobile_pct" placeholder="e.g. 75">
+          </div>
+        </div>
+        <div class="form-text mb-3">Leave both blank if the leads file has a Device column, or to keep the Decision Maker Mix card. Enter one value and the other is filled in to make 100%.</div>
         <div class="calc-box p-3 mb-4">
           <div class="small text-secondary mb-2">Calculated automatically</div>
           <div class="row row-cols-3 g-2 small">
