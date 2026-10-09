@@ -14,10 +14,11 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css">
 <style>
   body { background: var(--bs-tertiary-bg); }
-  .form-pane { height: 100vh; overflow-y: auto; }
-  .preview-pane { height: 100vh; overflow-y: auto; }
-  @media (max-width: 991.98px) {
-    .form-pane, .preview-pane { height: auto; overflow: visible; }
+  /* The whole page scrolls (no fixed-height panes, so no empty area under them);
+     the preview stays in view beside the form on wide screens. */
+  .form-pane { min-height: 100vh; }
+  @media (min-width: 992px) {
+    .preview-pane { position: sticky; top: 0; align-self: flex-start; max-height: 100vh; overflow-y: auto; }
   }
   .req::after { content: " *"; color: var(--bs-danger); }
   .calc-box { background: var(--bs-tertiary-bg); border: 1px dashed var(--bs-border-color); border-radius: .5rem; }
@@ -77,6 +78,17 @@
   .chart-card canvas { max-height: 280px; }
   .empty-note { color: var(--bs-secondary-color); }
   #result { display: none; }
+.design-card{display:block;cursor:pointer;border:1px solid #dee2e6;border-radius:10px;padding:8px;height:100%;background:#fff;transition:.15s}
+.design-card:hover{border-color:#86b7fe}
+.design-card input{position:absolute;opacity:0;pointer-events:none}
+.design-card:has(input:checked){border-color:#0d6efd;box-shadow:0 0 0 3px rgba(13,110,253,.18)}
+.design-thumb{position:relative;display:block;height:58px;border-radius:6px;overflow:hidden;border:1px solid rgba(0,0,0,.08);margin-bottom:6px}
+.design-thumb i{position:absolute;left:0;right:0;top:0;height:12px}
+.design-thumb b{position:absolute;left:6px;top:18px;width:38%;height:5px;border-radius:3px}
+.design-thumb em{position:absolute;top:29px;width:42%;height:22px;border-radius:3px;border:1px solid rgba(0,0,0,.08);border-top:3px solid}
+.design-thumb em:nth-of-type(1){left:6px}.design-thumb em:nth-of-type(2){right:6px}
+.design-name{display:block;font-weight:600;font-size:13px}
+.design-desc{display:block;font-size:11px;color:#6c757d;line-height:1.3}
 </style>
 </head>
 <body>
@@ -181,6 +193,36 @@
           <div class="form-text mt-2" id="lead_file_help">Excel or CSV · up to 25 MB</div>
           <div class="lead-file-status d-flex align-items-center justify-content-between gap-2 mt-2 small" id="lead_file_status" aria-live="polite"></div>
         </div>
+
+        <h2 class="h6 text-uppercase text-secondary">Report design</h2>
+        <div class="row g-2 mb-1 design-cards">
+          <div class="col-6 col-xl-4"><label class="design-card">
+            <input type="radio" name="design" value="classic" checked>
+            <span class="design-thumb" style="background:#243242"><i style="background:#172033"></i><b style="background:#f47b20"></b><em style="background:#2a3a4e;border-top-color:#f47b20"></em><em style="background:#2a3a4e;border-top-color:#f47b20"></em></span>
+            <span class="design-name">Classic</span><span class="design-desc">Dark slate, orange accents</span>
+          </label></div>
+          <div class="col-6 col-xl-4"><label class="design-card">
+            <input type="radio" name="design" value="corporate">
+            <span class="design-thumb" style="background:#ffffff"><i style="background:#0f2742"></i><b style="background:#c8a24a"></b><em style="background:#f7f9fc;border-top-color:#c8a24a"></em><em style="background:#f7f9fc;border-top-color:#c8a24a"></em></span>
+            <span class="design-name">Corporate</span><span class="design-desc">Navy and gold, serif titles</span>
+          </label></div>
+          <div class="col-6 col-xl-4"><label class="design-card">
+            <input type="radio" name="design" value="aurora">
+            <span class="design-thumb" style="background:#f5f3ff"><i style="background:linear-gradient(90deg,#4c1d95,#0e7490)"></i><b style="background:#7c3aed"></b><em style="background:#ffffff;border-top-color:#7c3aed"></em><em style="background:#ffffff;border-top-color:#7c3aed"></em></span>
+            <span class="design-name">Aurora</span><span class="design-desc">Violet to teal gradients</span>
+          </label></div>
+          <div class="col-6 col-xl-4"><label class="design-card">
+            <input type="radio" name="design" value="minimal">
+            <span class="design-thumb" style="background:#ffffff"><i style="background:#ffffff"></i><b style="background:#111111"></b><em style="background:#ffffff;border-top-color:#111111"></em><em style="background:#ffffff;border-top-color:#111111"></em></span>
+            <span class="design-name">Minimal</span><span class="design-desc">White space, hairlines</span>
+          </label></div>
+          <div class="col-6 col-xl-4"><label class="design-card">
+            <input type="radio" name="design" value="executive">
+            <span class="design-thumb" style="background:#fffdf8"><i style="background:#1b1a17"></i><b style="background:#b8913a"></b><em style="background:#ffffff;border-top-color:#b8913a"></em><em style="background:#ffffff;border-top-color:#b8913a"></em></span>
+            <span class="design-name">Executive</span><span class="design-desc">Charcoal and gold</span>
+          </label></div>
+        </div>
+        <div class="form-text mb-4">Sets the look of the generated report. You can also switch design later from the report's toolbar.</div>
 
         <h2 class="h6 text-uppercase text-secondary">Colour template</h2>
         <div class="row g-2 mb-2" id="templates"></div>

@@ -19,7 +19,7 @@ from pathlib import Path
 import pandas as pd
 from flask import Flask, abort, jsonify, request, send_from_directory
 
-from New_generate_dynamic_pra import BASE_DIR, DATE_FORMATS, DEFAULT_TEMPLATE, HEX_COLOR, build_report
+from New_generate_dynamic_pra import BASE_DIR, DATE_FORMATS, DEFAULT_TEMPLATE, DESIGNS, HEX_COLOR, build_report
 
 REPORTS_DIR = BASE_DIR / "generated_reports"
 ALLOWED_EXT = {".xlsx", ".xls", ".ods", ".csv"}
@@ -64,6 +64,9 @@ def generate():
         }
         if inputs["date_format"] not in DATE_FORMATS:
             raise ValueError("Unknown date format.")
+        inputs["design"] = form.get("design", "classic")
+        if inputs["design"] not in DESIGNS:
+            raise ValueError("Unknown report design.")
         if any(not HEX_COLOR.match(c) for c in inputs["palette"]):
             raise ValueError("Chart colours must be hex values like #3f5bd8.")
 
